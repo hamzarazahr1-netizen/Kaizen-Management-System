@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Kaizen": {
+      "title": "Kaizen",
+      "description": "A Kaizen submission for process improvement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "department": { "type": "string" },
+        "initiator": { "type": "string" },
+        "submissionDate": { "type": "string" },
+        "presentationDate": { "type": "string" },
+        "type": { "type": "string", "enum": ["Idea", "Implemented"] },
+        "status": { "type": "string", "enum": ["Pending", "Accepted", "Rejected"] },
+        "problem": { "type": "string" },
+        "solution": { "type": "string" },
+        "challenges": { "type": "string" },
+        "impact": {
+          "type": "object",
+          "properties": {
+            "costSaving": { "type": "boolean" },
+            "productivity": { "type": "boolean" },
+            "quality": { "type": "boolean" },
+            "safety": { "type": "boolean" },
+            "delivery": { "type": "boolean" }
+          }
+        },
+        "reward": { "type": "number" },
+        "feedback": { "type": "string" },
+        "month": { "type": "string" },
+        "beforeImg": { "type": "string" },
+        "afterImg": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "department", "initiator", "submissionDate", "type", "status", "problem", "solution", "month"]
+    }
+  },
+  "firestore": {
+    "/kaizens": {
+      "schema": "Kaizen",
+      "description": "Collection of all Kaizen submissions"
+    }
+  }
+}

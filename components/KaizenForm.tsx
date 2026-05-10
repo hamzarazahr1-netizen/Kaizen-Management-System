@@ -8,11 +8,12 @@ interface KaizenFormProps {
 }
 
 const KaizenForm: React.FC<KaizenFormProps> = ({ department, onSubmit }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     initiator: '',
     presentationDate: new Date().toISOString().split('T')[0],
     type: KaizenType.IDEA,
-    month: MONTHS[0],
+    month: MONTHS[new Date().getMonth() > 11 ? 0 : new Date().getMonth()], // Default to current month
     problem: '',
     solution: '',
     challenges: '',
@@ -27,22 +28,56 @@ const KaizenForm: React.FC<KaizenFormProps> = ({ department, onSubmit }) => {
 
   const [images, setImages] = useState({ before: '', after: '' });
 
+  // Helper to compress image
+  const compressImage = (base64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // Professional standard for web reports
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // Reduce quality to 0.7 for huge space savings with minimal visual loss
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File too large. Please select an image under 5MB.");
+        return;
+      }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImages(prev => ({ ...prev, [type]: reader.result as string }));
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setImages(prev => ({ ...prev, [type]: compressed }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     const newKaizen: Kaizen = {
       ...formData,
-      id: Math.random().toString(36).substr(2, 9),
+      id: `kz-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       department,
       submissionDate: new Date().toLocaleDateString(),
       status: KaizenStatus.PENDING,
@@ -51,7 +86,12 @@ const KaizenForm: React.FC<KaizenFormProps> = ({ department, onSubmit }) => {
       beforeImg: images.before,
       afterImg: images.after
     };
-    onSubmit(newKaizen);
+    
+    try {
+      await onSubmit(newKaizen);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -182,9 +222,15 @@ const KaizenForm: React.FC<KaizenFormProps> = ({ department, onSubmit }) => {
 
         <button 
           type="submit"
-          className="w-full bg-slate-900 hover:bg-black text-white font-bold uppercase py-4 rounded shadow-lg transition-all active:scale-[0.99] tracking-widest"
+          disabled={isSubmitting}
+          className={`w-full bg-slate-900 hover:bg-black text-white font-bold uppercase py-4 rounded shadow-lg transition-all active:scale-[0.99] tracking-widest flex items-center justify-center gap-3 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
-          Submit Strategic Proposal
+          {isSubmitting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              Syncing with Cloud...
+            </>
+          ) : 'Submit Strategic Proposal'}
         </button>
       </form>
     </div>

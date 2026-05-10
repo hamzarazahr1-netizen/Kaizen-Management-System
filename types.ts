@@ -46,7 +46,7 @@ export interface User {
 
 export const DEPARTMENTS = [
   'Chair', 'Furniture', 'CHF', 'Polish', 'RM Store', 'Chair Store', 'FG Store', 
-  'Weldshop', 'Logistic', 'Maintenance', 'HSE', 'Admin', 'PPMC', 'Department', 'Carpentry'
+  'Weldshop', 'Logistic', 'Maintenance', 'HSE', 'Admin', 'PPMC', 'Department'
 ];
 
 export const MONTHS = [

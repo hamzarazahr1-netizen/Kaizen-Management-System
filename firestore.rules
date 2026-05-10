@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidKaizen(data) {
+      return data.keys().hasAll(['department', 'initiator', 'submissionDate', 'type', 'status', 'problem', 'solution', 'month']) &&
+             data.department is string && data.department.size() <= 100 &&
+             data.initiator is string && data.initiator.size() <= 100 &&
+             data.problem is string && data.problem.size() <= 10000 &&
+             data.solution is string && data.solution.size() <= 10000 &&
+             data.type in ['Idea', 'Implemented'] &&
+             data.status in ['Pending', 'Accepted', 'Rejected'];
+    }
+
+    match /kaizens/{kaizenId} {
+      // Allowing public read/write for now as requested to ensure cloud storage works immediately
+      // Secure access would require request.auth.uid which is not currently used in Login.tsx
+      allow read: if true;
+      allow create: if isValidId(kaizenId) && isValidKaizen(request.resource.data);
+      allow update: if isValidId(kaizenId) && isValidKaizen(request.resource.data);
+      allow delete: if false;
+    }
+  }
+}
