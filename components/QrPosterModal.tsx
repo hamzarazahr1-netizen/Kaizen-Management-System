@@ -45,6 +45,7 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({
 
   const directUrl = buildQuickSubmitUrl(factory, department, baseUrl);
   const isAiStudioPreviewHost = baseUrl.includes('.run.app');
+  const isVercelHost = baseUrl.includes('.vercel.app') || baseUrl.includes('vercel.com');
 
   useEffect(() => {
     let active = true;
@@ -117,6 +118,11 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({
             {isAiStudioPreviewHost && (
               <p className="text-[11px] text-amber-700 mt-1">
                 Paste your public hosted URL (e.g. Vercel / Netlify / Firebase Hosting) above if your app is hosted externally, so Google Lens opens the live site without Page Not Found.
+              </p>
+            )}
+            {isVercelHost && (
+              <p className="text-[11px] text-amber-700 mt-1">
+                Vercel Note: Use your main Production domain and disable <strong>Vercel Authentication</strong> in Vercel Project Settings → Deployment Protection so mobile phones are not asked to log in to Vercel.
               </p>
             )}
           </div>

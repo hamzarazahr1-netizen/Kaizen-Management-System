@@ -23,6 +23,7 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = ({ factory, department
 
   const directUrl = buildQuickSubmitUrl(factory, department, baseUrl);
   const isAiStudioPreviewHost = baseUrl.includes('.run.app');
+  const isVercelHost = baseUrl.includes('.vercel.app') || baseUrl.includes('vercel.com');
 
   useEffect(() => {
     let active = true;
@@ -150,6 +151,11 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = ({ factory, department
           {isAiStudioPreviewHost && (
             <p className="text-[11px] text-amber-700 mt-1">
               Note: If you have hosted this app on Vercel, Netlify, or Firebase Hosting, paste that public URL above before downloading the PDF so external phones never hit a private preview link.
+            </p>
+          )}
+          {isVercelHost && (
+            <p className="text-[11px] text-amber-700 mt-1">
+              Vercel Note: Use your main Production domain (not a <span className="font-mono">-git-</span> preview link) and disable <strong>Vercel Authentication</strong> under Vercel Project Settings → Deployment Protection so phones never see a Vercel Login screen.
             </p>
           )}
         </div>
