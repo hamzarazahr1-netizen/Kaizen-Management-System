@@ -183,10 +183,12 @@ const URDU_NASTALIQ_FONT_STACK =
 async function ensureUrduFontsLoaded(): Promise<void> {
   try {
     if (document.fonts) {
+      const sampleUrdu = 'آپ ہمارے لیے اہم ہیں کیو آر کوڈ اسکین کریں';
       await Promise.all([
-        document.fonts.load('700 48px "Jameel Noori Nastaleeq"'),
-        document.fonts.load('700 48px "Noto Nastaliq Urdu"'),
-        document.fonts.load('700 48px "Noto Naskh Arabic"')
+        document.fonts.load('700 64px "Jameel Noori Nastaleeq"', sampleUrdu),
+        document.fonts.load('700 64px "Noto Nastaliq Urdu"', sampleUrdu),
+        document.fonts.load('700 50px "Noto Nastaliq Urdu"', sampleUrdu),
+        document.fonts.load('700 50px "Noto Naskh Arabic"', sampleUrdu)
       ]);
       await document.fonts.ready;
     }
@@ -239,14 +241,14 @@ function renderTopUrduBanner(): string {
   // Prominent Nastaliq Urdu headline
   ctx.font = `700 62px ${URDU_NASTALIQ_FONT_STACK}`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!', w / 2, 112, w - 90);
+  ctx.fillText('آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!', w / 2, 118, w - 90);
 
   return canvas.toDataURL('image/png');
 }
 
 function renderBottomUrduCallout(): string {
   const w = 1860;
-  const h = 780;
+  const h = 860;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -262,7 +264,7 @@ function renderBottomUrduCallout(): string {
 
   // Top emerald accent bar
   ctx.fillStyle = '#059669';
-  ctx.fillRect(5, 5, w - 10, 16);
+  ctx.fillRect(5, 5, w - 10, 18);
 
   ctx.direction = 'rtl';
   ctx.textAlign = 'center';
@@ -277,10 +279,10 @@ function renderBottomUrduCallout(): string {
   ): number => {
     ctx.font = `700 ${fontSize}px ${URDU_NASTALIQ_FONT_STACK}`;
     ctx.fillStyle = color;
-    const lines = wrapTextLines(ctx, text, w - 120);
+    const lines = wrapTextLines(ctx, text, w - 100);
     let y = startY;
     for (const line of lines) {
-      ctx.fillText(line, w / 2, y, w - 100);
+      ctx.fillText(line, w / 2, y, w - 80);
       y += lineStep;
     }
     return y;
@@ -290,51 +292,53 @@ function renderBottomUrduCallout(): string {
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(110, y);
-    ctx.lineTo(w - 110, y);
+    ctx.moveTo(100, y);
+    ctx.lineTo(w - 100, y);
     ctx.stroke();
   };
 
-  // 1. Primary Action Line
-  let nextY = drawBlock(
-    'اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں!',
-    50,
-    '#0f172a',
-    86,
-    82
-  );
+  // 1. Primary Action Line just below the QR Code (Extra-Large & Bold for Shop-Floor Visibility)
+  const primaryText = 'اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں!';
+  let primaryFontSize = 66;
+  ctx.font = `700 ${primaryFontSize}px ${URDU_NASTALIQ_FONT_STACK}`;
+  while (primaryFontSize > 56 && ctx.measureText(primaryText).width > w - 90) {
+    primaryFontSize -= 2;
+    ctx.font = `700 ${primaryFontSize}px ${URDU_NASTALIQ_FONT_STACK}`;
+  }
 
-  drawDivider(nextY - 12);
+  let nextY = drawBlock(primaryText, primaryFontSize, '#0f172a', 110, 102);
+
+  drawDivider(nextY - 8);
 
   // 2. Team Appreciation Line (exact requested Urdu text)
   nextY = drawBlock(
     'آپ ہمارے لیے اہم ہیں، آپ کی آواز سنی جاتی ہے اور آپ کے خیالات کی قدر کی جاتی ہے',
-    46,
+    50,
     '#047857',
-    nextY + 52,
-    82
+    nextY + 66,
+    96
   );
 
-  drawDivider(nextY - 12);
+  drawDivider(nextY - 8);
 
   // 3. Motivational Closing Line
   nextY = drawBlock(
     'بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!',
-    48,
+    52,
     '#1d4ed8',
-    nextY + 52,
-    82
+    nextY + 66,
+    94
   );
 
   // High-contrast bottom English action bar
-  const barY = Math.max(575, Math.min(660, nextY + 24));
+  const barY = Math.max(665, Math.min(738, nextY + 34));
   ctx.fillStyle = '#059669';
-  ctx.fillRect(140, barY, w - 280, 90);
+  ctx.fillRect(140, barY, w - 280, 94);
 
   ctx.direction = 'ltr';
   ctx.font = '800 42px "Plus Jakarta Sans", Arial, sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('SCAN FOR IMPROVEMENT', w / 2, barY + 46);
+  ctx.fillText('SCAN FOR IMPROVEMENT', w / 2, barY + 48);
 
   return canvas.toDataURL('image/png');
 }
@@ -406,14 +410,14 @@ async function renderPosterPage(
   pdf.text(department.toUpperCase(), centerX, 67, { align: 'center' });
 
   // Top Eye-Catching Urdu Hook Banner (Nastaliq)
-  pdf.addImage(topBannerUrl, 'PNG', 12, 73, pageWidth - 24, 24);
+  pdf.addImage(topBannerUrl, 'PNG', 12, 72, pageWidth - 24, 24);
 
   // Large High-Contrast QR Code
   const targetUrl = buildQuickSubmitUrl(factory, department, customBaseUrl);
   const qrDataUrl = await generateQrDataUrl(targetUrl, 720);
-  const qrSize = 88;
+  const qrSize = 84;
   const qrX = centerX - qrSize / 2;
-  const qrY = 104;
+  const qrY = 102;
 
   pdf.setDrawColor(15, 23, 42);
   pdf.setLineWidth(1.1);
@@ -421,7 +425,7 @@ async function renderPosterPage(
   pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
   // Bottom Large Urdu Action & Shop-Floor Value Callout Box (Nastaliq)
-  pdf.addImage(bottomCalloutUrl, 'PNG', 12, 202, pageWidth - 24, 78);
+  pdf.addImage(bottomCalloutUrl, 'PNG', 12, 196, pageWidth - 24, 86);
 }
 
 export async function downloadDepartmentQrPdf(
