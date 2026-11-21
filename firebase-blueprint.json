@@ -2,19 +2,23 @@
   "entities": {
     "Kaizen": {
       "title": "Kaizen",
-      "description": "A Kaizen submission for process improvement",
+      "description": "A Kaizen submission for process improvement across Master Furnishings factories",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "department": { "type": "string" },
-        "initiator": { "type": "string" },
-        "submissionDate": { "type": "string" },
-        "presentationDate": { "type": "string" },
+        "factory": {
+          "type": "string",
+          "enum": ["Karachi Furniture Factory", "Karachi Molty Foam Port Qasim"]
+        },
+        "department": { "type": "string", "maxLength": 100 },
+        "initiator": { "type": "string", "maxLength": 100 },
+        "submissionDate": { "type": "string", "maxLength": 40 },
+        "presentationDate": { "type": "string", "maxLength": 40 },
         "type": { "type": "string", "enum": ["Idea", "Implemented"] },
         "status": { "type": "string", "enum": ["Pending", "Accepted", "Rejected"] },
-        "problem": { "type": "string" },
-        "solution": { "type": "string" },
-        "challenges": { "type": "string" },
+        "problem": { "type": "string", "maxLength": 10000 },
+        "solution": { "type": "string", "maxLength": 10000 },
+        "challenges": { "type": "string", "maxLength": 5000 },
         "impact": {
           "type": "object",
           "properties": {
@@ -26,19 +30,19 @@
           }
         },
         "reward": { "type": "number" },
-        "feedback": { "type": "string" },
-        "month": { "type": "string" },
-        "beforeImg": { "type": "string" },
-        "afterImg": { "type": "string" },
+        "feedback": { "type": "string", "maxLength": 5000 },
+        "month": { "type": "string", "maxLength": 30 },
+        "beforeImg": { "type": "string", "maxLength": 900000 },
+        "afterImg": { "type": "string", "maxLength": 900000 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "department", "initiator", "submissionDate", "type", "status", "problem", "solution", "month"]
+      "required": ["id", "factory", "department", "initiator", "submissionDate", "type", "status", "problem", "solution", "month"]
     }
   },
   "firestore": {
     "/kaizens": {
       "schema": "Kaizen",
-      "description": "Collection of all Kaizen submissions"
+      "description": "Collection of all Kaizen submissions across factories"
     }
   }
 }
