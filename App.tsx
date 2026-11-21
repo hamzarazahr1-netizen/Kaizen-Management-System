@@ -206,20 +206,28 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       {/* Top Bar */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-6 sticky top-0 z-[100]">
-        <div className="flex items-center gap-4 min-w-0">
-          <img
-            src="/assets/aistudio/Master_Furnishings_68c64c06.jpeg"
-            alt="Master Furnishings Pvt. Ltd."
-            className="h-10 w-auto object-contain mix-blend-multiply shrink-0"
-            referrerPolicy="no-referrer"
-          />
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <img
+              src="/assets/aistudio/Master_Furnishings_68c64c06.jpeg"
+              alt="Master Furnishings"
+              className="h-9 w-auto object-contain mix-blend-multiply shrink-0"
+              referrerPolicy="no-referrer"
+            />
+            <img
+              src="/assets/aistudio/Master_Logo_17bc2ec9.png"
+              alt="Master Molty Foam"
+              className="h-9 w-auto object-contain rounded shrink-0"
+              referrerPolicy="no-referrer"
+            />
+          </div>
           <div className="hidden sm:block border-l border-slate-200 pl-4 min-w-0">
             <h1 className="text-sm font-extrabold text-slate-900 tracking-tight truncate">
-              {currentUser.role === 'ADMIN' ? 'Lean & Transformation Portal' : 'Kaizen Operational Portal'}
+              {currentUser.role === 'ADMIN' ? 'Lean & Transformation Portal' : 'Master Kaizen Management System'}
             </h1>
             <p className="text-xs text-slate-500 truncate">
               {currentUser.role === 'ADMIN'
-                ? 'Master Furnishings Pvt. Ltd. · All Manufacturing Facilities'
+                ? 'Master Lifestyle & Master Molty Foam Karachi Factories'
                 : `${currentUser.factory} · ${currentUser.department}`}
             </p>
           </div>

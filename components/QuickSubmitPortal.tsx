@@ -33,15 +33,23 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-4 sticky top-0 z-50">
         <div className="flex items-center gap-3 min-w-0">
-          <img
-            src="/assets/aistudio/Master_Furnishings_68c64c06.jpeg"
-            alt="Master Furnishings Pvt. Ltd."
-            className="h-9 sm:h-10 w-auto object-contain mix-blend-multiply shrink-0"
-            referrerPolicy="no-referrer"
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <img
+              src="/assets/aistudio/Master_Furnishings_68c64c06.jpeg"
+              alt="Master Furnishings"
+              className="h-8 sm:h-9 w-auto object-contain mix-blend-multiply shrink-0"
+              referrerPolicy="no-referrer"
+            />
+            <img
+              src="/assets/aistudio/Master_Logo_17bc2ec9.png"
+              alt="Master Molty Foam"
+              className="h-8 sm:h-9 w-auto object-contain rounded shrink-0"
+              referrerPolicy="no-referrer"
+            />
+          </div>
           <div className="border-l border-slate-200 pl-3 min-w-0">
             <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
-              Direct Kaizen Submission
+              Master Kaizen Management System
             </h1>
             <p className="text-[11px] sm:text-xs text-slate-500 truncate">
               {factory} <span aria-hidden="true">·</span> <span className="font-semibold text-blue-700">{department}</span>

@@ -95,20 +95,27 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         {/* Left Brand & Factory Context Panel */}
         <div className="lg:col-span-5 bg-[#f4f5f6] border-b lg:border-b-0 lg:border-r border-slate-200 p-8 flex flex-col justify-between">
           <div>
-            <div className="mb-8">
+            <div className="mb-7 flex items-center gap-4">
               <img
                 src="/assets/aistudio/Master_Furnishings_68c64c06.jpeg"
-                alt="Master Furnishings Pvt. Ltd."
-                className="h-16 w-auto object-contain mix-blend-multiply"
+                alt="Master Furnishings"
+                className="h-14 w-auto object-contain mix-blend-multiply"
+                referrerPolicy="no-referrer"
+              />
+              <div className="h-12 w-px bg-slate-300 shrink-0" aria-hidden="true" />
+              <img
+                src="/assets/aistudio/Master_Logo_17bc2ec9.png"
+                alt="Master Molty Foam Since 1963"
+                className="h-14 w-auto object-contain rounded shadow-xs shrink-0"
                 referrerPolicy="no-referrer"
               />
             </div>
 
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-snug">
-              Lean & Transformation Kaizen Portal
+              Master Kaizen Management System
             </h1>
             <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Centralized continuous improvement tracking, section performance analytics, and reward disbursement across Master Furnishings manufacturing facilities.
+              Centralized continuous improvement tracking, section performance analytics, and reward disbursement across Master Lifestyle and Master Molty Foam Karachi Factories.
             </p>
           </div>
 

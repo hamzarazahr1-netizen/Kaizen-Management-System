@@ -93,7 +93,10 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = ({ factory, department
             <h3 className="text-base font-extrabold text-slate-900 mt-1">
               {department} <span aria-hidden="true" className="text-slate-300">·</span> {factory}
             </h3>
-            <p className="text-xs text-slate-600 mt-1.5 max-w-xl leading-relaxed">
+            <p className="text-xs font-bold text-slate-900 mt-1.5">
+              Kaizen jama karwany k liye Scan kren <span aria-hidden="true" className="text-slate-300">·</span> <span className="text-blue-700">Scan for Improvement</span>
+            </p>
+            <p className="text-xs text-slate-600 mt-1 max-w-xl leading-relaxed">
               Print and display this QR code in your work area. Team members can scan it with any mobile phone or tablet camera to open the Kaizen submission form for <span className="font-semibold text-slate-900">{department}</span> directly—no login or password needed.
             </p>
             <p className="text-[11px] font-mono text-slate-500 mt-2 break-all">

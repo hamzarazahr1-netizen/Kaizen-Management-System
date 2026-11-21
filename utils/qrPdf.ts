@@ -31,8 +31,6 @@ export function getDefaultPortalBaseUrl(): string {
   }
 
   const origin = window.location.origin;
-  // In AI Studio Build preview, ais-dev-* is private to the editor session;
-  // map automatically to the public/shared ais-pre-* URL by default.
   if (window.location.hostname.startsWith('ais-dev-')) {
     return origin.replace('://ais-dev-', '://ais-pre-');
   }
@@ -73,7 +71,6 @@ export function buildQuickSubmitUrl(
 }
 
 export function parseQuickSubmitFromUrl(): { factory: Factory; department: string } | null {
-  // Read parameters from either standard query string (?...) or hash query (#/?...)
   let searchStr = window.location.search;
   if (!searchStr && window.location.hash.includes('?')) {
     searchStr = window.location.hash.slice(window.location.hash.indexOf('?'));
@@ -123,11 +120,22 @@ export async function generateQrDataUrl(url: string, width = 512): Promise<strin
   });
 }
 
-function loadLogoAsDataUrl(): Promise<{ dataUrl: string; width: number; height: number } | null> {
+interface LoadedImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+  format: 'JPEG' | 'PNG';
+}
+
+function loadImageAsDataUrl(
+  src: string,
+  format: 'JPEG' | 'PNG',
+  bgHex = '#f4f5f6'
+): Promise<LoadedImage | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = '/assets/aistudio/Master_Furnishings_68c64c06.jpeg';
+    img.src = src;
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
@@ -138,13 +146,17 @@ function loadLogoAsDataUrl(): Promise<{ dataUrl: string; width: number; height: 
           resolve(null);
           return;
         }
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (format === 'JPEG') {
+          ctx.fillStyle = bgHex;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
         ctx.drawImage(img, 0, 0);
+        const mime = format === 'PNG' ? 'image/png' : 'image/jpeg';
         resolve({
-          dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+          dataUrl: canvas.toDataURL(mime, 0.94),
           width: canvas.width,
-          height: canvas.height
+          height: canvas.height,
+          format
         });
       } catch {
         resolve(null);
@@ -154,11 +166,22 @@ function loadLogoAsDataUrl(): Promise<{ dataUrl: string; width: number; height: 
   });
 }
 
+async function loadBothLogos(): Promise<{
+  furnishings: LoadedImage | null;
+  molty: LoadedImage | null;
+}> {
+  const [furnishings, molty] = await Promise.all([
+    loadImageAsDataUrl('/assets/aistudio/Master_Furnishings_68c64c06.jpeg', 'JPEG', '#f4f5f6'),
+    loadImageAsDataUrl('/assets/aistudio/Master_Logo_17bc2ec9.png', 'PNG')
+  ]);
+  return { furnishings, molty };
+}
+
 async function renderPosterPage(
   pdf: jsPDF,
   factory: Factory,
   department: string,
-  logo: { dataUrl: string; width: number; height: number } | null,
+  logos: { furnishings: LoadedImage | null; molty: LoadedImage | null },
   customBaseUrl?: string
 ): Promise<void> {
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -167,83 +190,112 @@ async function renderPosterPage(
 
   // Outer frame
   pdf.setDrawColor(203, 213, 225);
-  pdf.setLineWidth(0.5);
+  pdf.setLineWidth(0.6);
   pdf.rect(12, 12, pageWidth - 24, pageHeight - 24);
 
   // Header brand band
   pdf.setFillColor(244, 245, 246);
-  pdf.rect(12.5, 12.5, pageWidth - 25, 38, 'F');
+  pdf.rect(12.5, 12.5, pageWidth - 25, 40, 'F');
 
-  if (logo) {
-    const targetH = 22;
-    const aspect = logo.width / logo.height;
-    const targetW = targetH * aspect;
-    pdf.addImage(logo.dataUrl, 'JPEG', centerX - targetW / 2, 20, targetW, targetH);
+  const { furnishings, molty } = logos;
+  if (furnishings && molty) {
+    const fH = 22;
+    const fW = fH * (furnishings.width / furnishings.height);
+    const mH = 26;
+    const mW = mH * (molty.width / molty.height);
+    const gap = 14;
+    const totalW = fW + gap + mW;
+    const startX = centerX - totalW / 2;
+
+    pdf.addImage(furnishings.dataUrl, 'JPEG', startX, 21, fW, fH);
+    pdf.setDrawColor(203, 213, 225);
+    pdf.setLineWidth(0.4);
+    pdf.line(startX + fW + gap / 2, 19, startX + fW + gap / 2, 46);
+    pdf.addImage(molty.dataUrl, 'PNG', startX + fW + gap, 19, mW, mH);
+  } else if (furnishings) {
+    const fH = 22;
+    const fW = fH * (furnishings.width / furnishings.height);
+    pdf.addImage(furnishings.dataUrl, 'JPEG', centerX - fW / 2, 21, fW, fH);
+  } else if (molty) {
+    const mH = 26;
+    const mW = mH * (molty.width / molty.height);
+    pdf.addImage(molty.dataUrl, 'PNG', centerX - mW / 2, 19, mW, mH);
   } else {
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(18);
+    pdf.setFontSize(17);
     pdf.setTextColor(15, 23, 42);
-    pdf.text('MASTER FURNISHINGS PVT. LTD.', centerX, 33, { align: 'center' });
+    pdf.text('MASTER LIFESTYLE & MASTER MOLTY FOAM', centerX, 34, { align: 'center' });
   }
 
   // Portal Title
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(11);
+  pdf.setFontSize(12);
   pdf.setTextColor(29, 78, 216);
-  pdf.text('LEAN & TRANSFORMATION KAIZEN PORTAL', centerX, 64, { align: 'center' });
+  pdf.text('MASTER KAIZEN MANAGEMENT SYSTEM', centerX, 64, { align: 'center' });
+
+  // Subtitle
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9.5);
+  pdf.setTextColor(100, 116, 139);
+  pdf.text('Master Lifestyle & Master Molty Foam Karachi Factories', centerX, 70, { align: 'center' });
 
   // Factory Name
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(14);
-  pdf.setTextColor(71, 85, 105);
-  pdf.text(factory.toUpperCase(), centerX, 75, { align: 'center' });
+  pdf.setFontSize(13.5);
+  pdf.setTextColor(51, 65, 85);
+  pdf.text(factory.toUpperCase(), centerX, 80, { align: 'center' });
 
   // Divider
   pdf.setDrawColor(226, 232, 240);
-  pdf.line(30, 82, pageWidth - 30, 82);
+  pdf.line(28, 85, pageWidth - 28, 85);
 
   // Department / Section Title
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(26);
+  pdf.setFontSize(25);
   pdf.setTextColor(15, 23, 42);
   pdf.text(department.toUpperCase(), centerX, 99, { align: 'center' });
 
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
+  pdf.setFontSize(10.5);
   pdf.setTextColor(100, 116, 139);
-  pdf.text('Direct Kaizen Submission Station', centerX, 108, { align: 'center' });
+  pdf.text('Direct Kaizen Submission Station', centerX, 107, { align: 'center' });
 
   // QR Code
   const targetUrl = buildQuickSubmitUrl(factory, department, customBaseUrl);
   const qrDataUrl = await generateQrDataUrl(targetUrl, 640);
-  const qrSize = 104;
+  const qrSize = 98;
   const qrX = centerX - qrSize / 2;
-  const qrY = 118;
+  const qrY = 114;
 
   pdf.setDrawColor(15, 23, 42);
-  pdf.setLineWidth(0.8);
+  pdf.setLineWidth(0.9);
   pdf.rect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
   pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-  // Scan instructions box
-  const boxY = 236;
-  pdf.setFillColor(248, 250, 252);
-  pdf.setDrawColor(203, 213, 225);
-  pdf.setLineWidth(0.4);
-  pdf.rect(24, boxY, pageWidth - 48, 28, 'FD');
+  // Bilingual Floor Worker Callout Box (Roman Urdu + English)
+  const boxY = 224;
+  pdf.setFillColor(239, 246, 255);
+  pdf.setDrawColor(29, 78, 216);
+  pdf.setLineWidth(0.7);
+  pdf.rect(22, boxY, pageWidth - 44, 38, 'FD');
 
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(12);
+  pdf.setFontSize(15);
   pdf.setTextColor(15, 23, 42);
-  pdf.text('SCAN WITH MOBILE OR TABLET TO SUBMIT KAIZEN', centerX, boxY + 10, { align: 'center' });
+  pdf.text('Kaizen jama karwany k liye Scan kren', centerX, boxY + 12, { align: 'center' });
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(13);
+  pdf.setTextColor(29, 78, 216);
+  pdf.text('SCAN FOR IMPROVEMENT', centerX, boxY + 22, { align: 'center' });
 
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9.5);
+  pdf.setFontSize(9);
   pdf.setTextColor(71, 85, 105);
   pdf.text(
-    `Submissions are registered directly to ${department} (${getShortFactoryName(factory)}) without login.`,
+    `Direct submission to ${department} (${getShortFactoryName(factory)}) — No login or password needed.`,
     centerX,
-    boxY + 19,
+    boxY + 31,
     { align: 'center' }
   );
 
@@ -253,7 +305,7 @@ async function renderPosterPage(
   pdf.setTextColor(148, 163, 184);
   const clippedUrl = targetUrl.length > 95 ? `${targetUrl.slice(0, 92)}...` : targetUrl;
   pdf.text(clippedUrl, centerX, pageHeight - 20, { align: 'center' });
-  pdf.text('Master Furnishings Pvt. Ltd. · Lean & Transformation Portal', centerX, pageHeight - 15, { align: 'center' });
+  pdf.text('Master Kaizen Management System · Master Lifestyle & Master Molty Foam', centerX, pageHeight - 15, { align: 'center' });
 }
 
 export async function downloadDepartmentQrPdf(
@@ -262,8 +314,8 @@ export async function downloadDepartmentQrPdf(
   customBaseUrl?: string
 ): Promise<void> {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const logo = await loadLogoAsDataUrl();
-  await renderPosterPage(pdf, factory, department, logo, customBaseUrl);
+  const logos = await loadBothLogos();
+  await renderPosterPage(pdf, factory, department, logos, customBaseUrl);
 
   const safeFactory = getShortFactoryName(factory).replace(/\s+/g, '_');
   const safeDept = department.replace(/\s+/g, '_');
@@ -276,11 +328,11 @@ export async function downloadAllFactoryQrPdf(
 ): Promise<void> {
   const units = getDepartmentsForFactory(factory);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const logo = await loadLogoAsDataUrl();
+  const logos = await loadBothLogos();
 
   for (let i = 0; i < units.length; i++) {
     if (i > 0) pdf.addPage();
-    await renderPosterPage(pdf, factory, units[i], logo, customBaseUrl);
+    await renderPosterPage(pdf, factory, units[i], logos, customBaseUrl);
   }
 
   const safeFactory = getShortFactoryName(factory).replace(/\s+/g, '_');
