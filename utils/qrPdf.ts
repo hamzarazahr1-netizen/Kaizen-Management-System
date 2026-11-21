@@ -177,135 +177,223 @@ async function loadBothLogos(): Promise<{
   return { furnishings, molty };
 }
 
+async function ensureUrduFontsLoaded(): Promise<void> {
+  try {
+    if (document.fonts) {
+      await document.fonts.load('700 48px "Noto Naskh Arabic"');
+      await document.fonts.ready;
+    }
+  } catch {
+    // Proceed with fallback system fonts if font API fails
+  }
+}
+
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  const words = text.trim().split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (ctx.measureText(test).width <= maxWidth) {
+      current = test;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function renderTopUrduBanner(): string {
+  const w = 1860;
+  const h = 210;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+
+  // Rich navy banner with Master gold & royal-blue accent border
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = '#1d4ed8';
+  ctx.fillRect(0, h - 14, w, 14);
+
+  const fontStack = '"Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Single prominent Urdu headline: آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!
+  ctx.font = `700 74px ${fontStack}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!', w / 2, 100, w - 90);
+
+  return canvas.toDataURL('image/png');
+}
+
+function renderBottomUrduCallout(): string {
+  const w = 1860;
+  const h = 680;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+
+  // Clean high-contrast light card with strong border & emerald/blue accent
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = '#1d4ed8';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, w - 10, h - 10);
+
+  // Top emerald reward bar
+  ctx.fillStyle = '#059669';
+  ctx.fillRect(5, 5, w - 10, 18);
+
+  const fontStack = '"Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Line 2 (Primary action & reward):
+  // اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں اور انعام حاصل کریں!
+  ctx.font = `700 60px ${fontStack}`;
+  ctx.fillStyle = '#0f172a';
+  const primaryText = 'اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں اور انعام حاصل کریں!';
+  const primaryLines = wrapTextLines(ctx, primaryText, w - 120);
+
+  if (primaryLines.length <= 1) {
+    ctx.fillText(primaryText, w / 2, 130, w - 110);
+  } else {
+    ctx.fillText(primaryLines[0], w / 2, 95, w - 110);
+    ctx.fillText(primaryLines.slice(1).join(' '), w / 2, 178, w - 110);
+  }
+
+  // Soft divider line
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(100, 260);
+  ctx.lineTo(w - 100, 260);
+  ctx.stroke();
+
+  // Line 4 (Motivational closing):
+  // بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!
+  ctx.font = `700 56px ${fontStack}`;
+  ctx.fillStyle = '#1d4ed8';
+  const closingText = 'بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!';
+  const closingLines = wrapTextLines(ctx, closingText, w - 120);
+
+  if (closingLines.length <= 1) {
+    ctx.fillText(closingText, w / 2, 365, w - 110);
+  } else {
+    ctx.fillText(closingLines[0], w / 2, 332, w - 110);
+    ctx.fillText(closingLines.slice(1).join(' '), w / 2, 412, w - 110);
+  }
+
+  // High-contrast bottom English action pill bar inside card
+  ctx.fillStyle = '#059669';
+  ctx.fillRect(140, 515, w - 280, 105);
+
+  ctx.direction = 'ltr';
+  ctx.font = '800 44px "Plus Jakarta Sans", Arial, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('SCAN FOR IMPROVEMENT', w / 2, 568);
+
+  return canvas.toDataURL('image/png');
+}
+
 async function renderPosterPage(
   pdf: jsPDF,
   factory: Factory,
   department: string,
   logos: { furnishings: LoadedImage | null; molty: LoadedImage | null },
+  topBannerUrl: string,
+  bottomCalloutUrl: string,
   customBaseUrl?: string
 ): Promise<void> {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const centerX = pageWidth / 2;
 
-  // Outer frame
+  // Clean outer border
   pdf.setDrawColor(203, 213, 225);
-  pdf.setLineWidth(0.6);
-  pdf.rect(12, 12, pageWidth - 24, pageHeight - 24);
+  pdf.setLineWidth(0.7);
+  pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
 
-  // Header brand band
+  // Header brand band with both logos
   pdf.setFillColor(244, 245, 246);
-  pdf.rect(12.5, 12.5, pageWidth - 25, 40, 'F');
+  pdf.rect(10.5, 10.5, pageWidth - 21, 32, 'F');
 
   const { furnishings, molty } = logos;
   if (furnishings && molty) {
-    const fH = 22;
+    const fH = 19;
     const fW = fH * (furnishings.width / furnishings.height);
-    const mH = 26;
+    const mH = 22;
     const mW = mH * (molty.width / molty.height);
     const gap = 14;
     const totalW = fW + gap + mW;
     const startX = centerX - totalW / 2;
 
-    pdf.addImage(furnishings.dataUrl, 'JPEG', startX, 21, fW, fH);
+    pdf.addImage(furnishings.dataUrl, 'JPEG', startX, 17, fW, fH);
     pdf.setDrawColor(203, 213, 225);
     pdf.setLineWidth(0.4);
-    pdf.line(startX + fW + gap / 2, 19, startX + fW + gap / 2, 46);
-    pdf.addImage(molty.dataUrl, 'PNG', startX + fW + gap, 19, mW, mH);
+    pdf.line(startX + fW + gap / 2, 15, startX + fW + gap / 2, 38);
+    pdf.addImage(molty.dataUrl, 'PNG', startX + fW + gap, 15.5, mW, mH);
   } else if (furnishings) {
-    const fH = 22;
+    const fH = 19;
     const fW = fH * (furnishings.width / furnishings.height);
-    pdf.addImage(furnishings.dataUrl, 'JPEG', centerX - fW / 2, 21, fW, fH);
+    pdf.addImage(furnishings.dataUrl, 'JPEG', centerX - fW / 2, 17, fW, fH);
   } else if (molty) {
-    const mH = 26;
+    const mH = 22;
     const mW = mH * (molty.width / molty.height);
-    pdf.addImage(molty.dataUrl, 'PNG', centerX - mW / 2, 19, mW, mH);
-  } else {
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(17);
-    pdf.setTextColor(15, 23, 42);
-    pdf.text('MASTER LIFESTYLE & MASTER MOLTY FOAM', centerX, 34, { align: 'center' });
+    pdf.addImage(molty.dataUrl, 'PNG', centerX - mW / 2, 15.5, mW, mH);
   }
 
-  // Portal Title
+  // Company & Factory Identification
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(11);
+  pdf.setTextColor(71, 85, 105);
+  const companyLabel =
+    factory === Factory.FURNITURE ? 'MASTER LIFESTYLE PVT. LTD.' : 'MASTER MOLTY FOAM';
+  pdf.text(companyLabel, centerX, 50, { align: 'center' });
+
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(12);
   pdf.setTextColor(29, 78, 216);
-  pdf.text('MASTER KAIZEN MANAGEMENT SYSTEM', centerX, 64, { align: 'center' });
+  pdf.text(factory.toUpperCase(), centerX, 56.5, { align: 'center' });
 
-  // Subtitle
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9.5);
-  pdf.setTextColor(100, 116, 139);
-  pdf.text('Master Lifestyle & Master Molty Foam Karachi Factories', centerX, 70, { align: 'center' });
-
-  // Factory Name
+  // Department / Section Title (large, clear for shop floor)
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(13.5);
-  pdf.setTextColor(51, 65, 85);
-  pdf.text(factory.toUpperCase(), centerX, 80, { align: 'center' });
-
-  // Divider
-  pdf.setDrawColor(226, 232, 240);
-  pdf.line(28, 85, pageWidth - 28, 85);
-
-  // Department / Section Title
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(25);
+  pdf.setFontSize(26);
   pdf.setTextColor(15, 23, 42);
-  pdf.text(department.toUpperCase(), centerX, 99, { align: 'center' });
+  pdf.text(department.toUpperCase(), centerX, 68.5, { align: 'center' });
 
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(10.5);
-  pdf.setTextColor(100, 116, 139);
-  pdf.text('Direct Kaizen Submission Station', centerX, 107, { align: 'center' });
+  // Top Eye-Catching Urdu Hook Banner
+  pdf.addImage(topBannerUrl, 'PNG', 12, 75, pageWidth - 24, 21);
 
-  // QR Code
+  // Large High-Contrast QR Code
   const targetUrl = buildQuickSubmitUrl(factory, department, customBaseUrl);
-  const qrDataUrl = await generateQrDataUrl(targetUrl, 640);
+  const qrDataUrl = await generateQrDataUrl(targetUrl, 720);
   const qrSize = 98;
   const qrX = centerX - qrSize / 2;
-  const qrY = 114;
+  const qrY = 104;
 
   pdf.setDrawColor(15, 23, 42);
-  pdf.setLineWidth(0.9);
+  pdf.setLineWidth(1.1);
   pdf.rect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
   pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-  // Bilingual Floor Worker Callout Box (Roman Urdu + English)
-  const boxY = 224;
-  pdf.setFillColor(239, 246, 255);
-  pdf.setDrawColor(29, 78, 216);
-  pdf.setLineWidth(0.7);
-  pdf.rect(22, boxY, pageWidth - 44, 38, 'FD');
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(15);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text('Kaizen jama karwany k liye Scan kren', centerX, boxY + 12, { align: 'center' });
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(13);
-  pdf.setTextColor(29, 78, 216);
-  pdf.text('SCAN FOR IMPROVEMENT', centerX, boxY + 22, { align: 'center' });
-
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9);
-  pdf.setTextColor(71, 85, 105);
-  pdf.text(
-    `Direct submission to ${department} (${getShortFactoryName(factory)}) — No login or password needed.`,
-    centerX,
-    boxY + 31,
-    { align: 'center' }
-  );
-
-  // Footer
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(148, 163, 184);
-  const clippedUrl = targetUrl.length > 95 ? `${targetUrl.slice(0, 92)}...` : targetUrl;
-  pdf.text(clippedUrl, centerX, pageHeight - 20, { align: 'center' });
-  pdf.text('Master Kaizen Management System · Master Lifestyle & Master Molty Foam', centerX, pageHeight - 15, { align: 'center' });
+  // Bottom Large Urdu Reward & Action Callout Box
+  pdf.addImage(bottomCalloutUrl, 'PNG', 12, 212, pageWidth - 24, 68);
 }
 
 export async function downloadDepartmentQrPdf(
@@ -313,9 +401,13 @@ export async function downloadDepartmentQrPdf(
   department: string,
   customBaseUrl?: string
 ): Promise<void> {
+  await ensureUrduFontsLoaded();
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const logos = await loadBothLogos();
-  await renderPosterPage(pdf, factory, department, logos, customBaseUrl);
+  const topBannerUrl = renderTopUrduBanner();
+  const bottomCalloutUrl = renderBottomUrduCallout();
+
+  await renderPosterPage(pdf, factory, department, logos, topBannerUrl, bottomCalloutUrl, customBaseUrl);
 
   const safeFactory = getShortFactoryName(factory).replace(/\s+/g, '_');
   const safeDept = department.replace(/\s+/g, '_');
@@ -326,13 +418,16 @@ export async function downloadAllFactoryQrPdf(
   factory: Factory,
   customBaseUrl?: string
 ): Promise<void> {
+  await ensureUrduFontsLoaded();
   const units = getDepartmentsForFactory(factory);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const logos = await loadBothLogos();
+  const topBannerUrl = renderTopUrduBanner();
+  const bottomCalloutUrl = renderBottomUrduCallout();
 
   for (let i = 0; i < units.length; i++) {
     if (i > 0) pdf.addPage();
-    await renderPosterPage(pdf, factory, units[i], logos, customBaseUrl);
+    await renderPosterPage(pdf, factory, units[i], logos, topBannerUrl, bottomCalloutUrl, customBaseUrl);
   }
 
   const safeFactory = getShortFactoryName(factory).replace(/\s+/g, '_');
