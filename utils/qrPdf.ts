@@ -177,10 +177,17 @@ async function loadBothLogos(): Promise<{
   return { furnishings, molty };
 }
 
+const URDU_NASTALIQ_FONT_STACK =
+  '"Jameel Noori Nastaleeq", "Jameel Noori Nastaliq", "Noori Nastaleeq", "Noto Nastaliq Urdu", "Alvi Nastaleeq", "Noto Naskh Arabic", Tahoma, Arial, sans-serif';
+
 async function ensureUrduFontsLoaded(): Promise<void> {
   try {
     if (document.fonts) {
-      await document.fonts.load('700 48px "Noto Naskh Arabic"');
+      await Promise.all([
+        document.fonts.load('700 48px "Jameel Noori Nastaleeq"'),
+        document.fonts.load('700 48px "Noto Nastaliq Urdu"'),
+        document.fonts.load('700 48px "Noto Naskh Arabic"')
+      ]);
       await document.fonts.ready;
     }
   } catch {
@@ -212,35 +219,34 @@ function wrapTextLines(
 
 function renderTopUrduBanner(): string {
   const w = 1860;
-  const h = 210;
+  const h = 240;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  // Rich navy banner with Master gold & royal-blue accent border
+  // Rich navy banner with Master royal-blue accent border
   ctx.fillStyle = '#0f172a';
   ctx.fillRect(0, 0, w, h);
 
   ctx.fillStyle = '#1d4ed8';
   ctx.fillRect(0, h - 14, w, 14);
 
-  const fontStack = '"Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
   ctx.direction = 'rtl';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Single prominent Urdu headline: آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!
-  ctx.font = `700 74px ${fontStack}`;
+  // Prominent Nastaliq Urdu headline
+  ctx.font = `700 62px ${URDU_NASTALIQ_FONT_STACK}`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!', w / 2, 100, w - 90);
+  ctx.fillText('آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!', w / 2, 112, w - 90);
 
   return canvas.toDataURL('image/png');
 }
 
 function renderBottomUrduCallout(): string {
   const w = 1860;
-  const h = 680;
+  const h = 780;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -254,59 +260,81 @@ function renderBottomUrduCallout(): string {
   ctx.lineWidth = 10;
   ctx.strokeRect(5, 5, w - 10, h - 10);
 
-  // Top emerald reward bar
+  // Top emerald accent bar
   ctx.fillStyle = '#059669';
-  ctx.fillRect(5, 5, w - 10, 18);
+  ctx.fillRect(5, 5, w - 10, 16);
 
-  const fontStack = '"Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
   ctx.direction = 'rtl';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Line 2 (Primary action & reward):
-  // اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں اور انعام حاصل کریں!
-  ctx.font = `700 60px ${fontStack}`;
-  ctx.fillStyle = '#0f172a';
-  const primaryText = 'اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں اور انعام حاصل کریں!';
-  const primaryLines = wrapTextLines(ctx, primaryText, w - 120);
+  const drawBlock = (
+    text: string,
+    fontSize: number,
+    color: string,
+    startY: number,
+    lineStep: number
+  ): number => {
+    ctx.font = `700 ${fontSize}px ${URDU_NASTALIQ_FONT_STACK}`;
+    ctx.fillStyle = color;
+    const lines = wrapTextLines(ctx, text, w - 120);
+    let y = startY;
+    for (const line of lines) {
+      ctx.fillText(line, w / 2, y, w - 100);
+      y += lineStep;
+    }
+    return y;
+  };
 
-  if (primaryLines.length <= 1) {
-    ctx.fillText(primaryText, w / 2, 130, w - 110);
-  } else {
-    ctx.fillText(primaryLines[0], w / 2, 95, w - 110);
-    ctx.fillText(primaryLines.slice(1).join(' '), w / 2, 178, w - 110);
-  }
+  const drawDivider = (y: number) => {
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(110, y);
+    ctx.lineTo(w - 110, y);
+    ctx.stroke();
+  };
 
-  // Soft divider line
-  ctx.strokeStyle = '#cbd5e1';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(100, 260);
-  ctx.lineTo(w - 100, 260);
-  ctx.stroke();
+  // 1. Primary Action Line
+  let nextY = drawBlock(
+    'اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں!',
+    50,
+    '#0f172a',
+    86,
+    82
+  );
 
-  // Line 4 (Motivational closing):
-  // بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!
-  ctx.font = `700 56px ${fontStack}`;
-  ctx.fillStyle = '#1d4ed8';
-  const closingText = 'بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!';
-  const closingLines = wrapTextLines(ctx, closingText, w - 120);
+  drawDivider(nextY - 12);
 
-  if (closingLines.length <= 1) {
-    ctx.fillText(closingText, w / 2, 365, w - 110);
-  } else {
-    ctx.fillText(closingLines[0], w / 2, 332, w - 110);
-    ctx.fillText(closingLines.slice(1).join(' '), w / 2, 412, w - 110);
-  }
+  // 2. Team Appreciation Line (exact requested Urdu text)
+  nextY = drawBlock(
+    'آپ ہمارے لیے اہم ہیں، آپ کی آواز سنی جاتی ہے اور آپ کے خیالات کی قدر کی جاتی ہے',
+    46,
+    '#047857',
+    nextY + 52,
+    82
+  );
 
-  // High-contrast bottom English action pill bar inside card
+  drawDivider(nextY - 12);
+
+  // 3. Motivational Closing Line
+  nextY = drawBlock(
+    'بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!',
+    48,
+    '#1d4ed8',
+    nextY + 52,
+    82
+  );
+
+  // High-contrast bottom English action bar
+  const barY = Math.max(575, Math.min(660, nextY + 24));
   ctx.fillStyle = '#059669';
-  ctx.fillRect(140, 515, w - 280, 105);
+  ctx.fillRect(140, barY, w - 280, 90);
 
   ctx.direction = 'ltr';
-  ctx.font = '800 44px "Plus Jakarta Sans", Arial, sans-serif';
+  ctx.font = '800 42px "Plus Jakarta Sans", Arial, sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('SCAN FOR IMPROVEMENT', w / 2, 568);
+  ctx.fillText('SCAN FOR IMPROVEMENT', w / 2, barY + 46);
 
   return canvas.toDataURL('image/png');
 }
@@ -364,26 +392,26 @@ async function renderPosterPage(
   pdf.setTextColor(71, 85, 105);
   const companyLabel =
     factory === Factory.FURNITURE ? 'MASTER LIFESTYLE PVT. LTD.' : 'MASTER MOLTY FOAM';
-  pdf.text(companyLabel, centerX, 50, { align: 'center' });
+  pdf.text(companyLabel, centerX, 49.5, { align: 'center' });
 
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(12);
   pdf.setTextColor(29, 78, 216);
-  pdf.text(factory.toUpperCase(), centerX, 56.5, { align: 'center' });
+  pdf.text(factory.toUpperCase(), centerX, 55.5, { align: 'center' });
 
   // Department / Section Title (large, clear for shop floor)
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(26);
   pdf.setTextColor(15, 23, 42);
-  pdf.text(department.toUpperCase(), centerX, 68.5, { align: 'center' });
+  pdf.text(department.toUpperCase(), centerX, 67, { align: 'center' });
 
-  // Top Eye-Catching Urdu Hook Banner
-  pdf.addImage(topBannerUrl, 'PNG', 12, 75, pageWidth - 24, 21);
+  // Top Eye-Catching Urdu Hook Banner (Nastaliq)
+  pdf.addImage(topBannerUrl, 'PNG', 12, 73, pageWidth - 24, 24);
 
   // Large High-Contrast QR Code
   const targetUrl = buildQuickSubmitUrl(factory, department, customBaseUrl);
   const qrDataUrl = await generateQrDataUrl(targetUrl, 720);
-  const qrSize = 98;
+  const qrSize = 88;
   const qrX = centerX - qrSize / 2;
   const qrY = 104;
 
@@ -392,8 +420,8 @@ async function renderPosterPage(
   pdf.rect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
   pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-  // Bottom Large Urdu Reward & Action Callout Box
-  pdf.addImage(bottomCalloutUrl, 'PNG', 12, 212, pageWidth - 24, 68);
+  // Bottom Large Urdu Action & Shop-Floor Value Callout Box (Nastaliq)
+  pdf.addImage(bottomCalloutUrl, 'PNG', 12, 202, pageWidth - 24, 78);
 }
 
 export async function downloadDepartmentQrPdf(
