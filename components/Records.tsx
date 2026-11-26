@@ -61,8 +61,9 @@ const Records: React.FC<RecordsProps> = ({ user, kaizens, onUpdate }) => {
   const availableFactories = useMemo(() => getFactoriesForLocation(locationFilter), [locationFilter]);
   const availableDepts = useMemo(() => {
     if (factoryFilter !== 'All') return getDepartmentsForFactory(factoryFilter);
+    if (availableFactories.length === 1) return getDepartmentsForFactory(availableFactories[0]);
     return getDepartmentsForFactory('All');
-  }, [factoryFilter]);
+  }, [factoryFilter, availableFactories]);
 
   const handleLocationFilterChange = (val: 'All' | Location) => {
     setLocationFilter(val);

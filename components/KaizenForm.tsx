@@ -109,7 +109,7 @@ const KaizenForm: React.FC<KaizenFormProps> = ({
   }, [selectedLocation, selectedFactory, selectedDepartment, formData.month]);
 
   const compressImage = (base64: string): Promise<string> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.src = base64;
       img.onload = () => {
@@ -129,6 +129,7 @@ const KaizenForm: React.FC<KaizenFormProps> = ({
         ctx?.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
+      img.onerror = () => reject(new Error('Unsupported or unreadable image format. Please select a JPG or PNG photo.'));
     });
   };
 
@@ -142,8 +143,12 @@ const KaizenForm: React.FC<KaizenFormProps> = ({
       setSubmitError('');
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setImages((prev) => ({ ...prev, [type]: compressed }));
+        try {
+          const compressed = await compressImage(reader.result as string);
+          setImages((prev) => ({ ...prev, [type]: compressed }));
+        } catch (err) {
+          setSubmitError(err instanceof Error ? err.message : 'Unable to process image.');
+        }
       };
       reader.readAsDataURL(file);
     }

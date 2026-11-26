@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { QrCode, FileDown, Copy, Check, ExternalLink, RotateCcw } from 'lucide-react';
+import { QrCode, FileDown, Copy, Check, ExternalLink } from 'lucide-react';
 import {
   buildCentralizedQuickSubmitUrl,
   generateQrDataUrl,
   downloadCentralizedQrPdf,
   getDefaultPortalBaseUrl,
-  savePortalBaseUrl,
-  resetPortalBaseUrl
+  fetchCloudPortalSettings
 } from '../utils/qrPdf';
 
 interface DepartmentQrCardProps {
@@ -25,6 +24,18 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = () => {
 
   useEffect(() => {
     let active = true;
+    fetchCloudPortalSettings().then((settings) => {
+      if (active && settings.permanentBaseUrl) {
+        setBaseUrl(settings.permanentBaseUrl);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     generateQrDataUrl(directUrl, 360).then((url) => {
       if (active) setQrDataUrl(url);
     });
@@ -32,15 +43,6 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = () => {
       active = false;
     };
   }, [directUrl]);
-
-  const handleBaseUrlChange = (val: string) => {
-    setBaseUrl(val);
-    savePortalBaseUrl(val);
-  };
-
-  const handleResetBaseUrl = () => {
-    setBaseUrl(resetPortalBaseUrl());
-  };
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -66,7 +68,7 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = () => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-5">
+    <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-5">
           <div className="w-36 h-36 bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center justify-center shrink-0">
@@ -83,7 +85,7 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = () => {
 
           <div className="text-center sm:text-left">
             <p className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-              Centralized Pakistan Kaizen QR Code
+              Permanent Centralized Pakistan Kaizen QR Code
             </p>
             <h3 className="text-base font-extrabold text-slate-900 mt-1">
               Master Group of Industries <span aria-hidden="true" className="text-slate-300">·</span> Karachi · Lahore · Mirpur
@@ -93,7 +95,7 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = () => {
               <span className="text-blue-700">Scan for Improvement</span>
             </p>
             <p className="text-xs text-slate-600 mt-1 max-w-xl leading-relaxed">
-              One universal QR code across all Master Lifestyle and Master Molty Foam factories. Any employee can scan this QR code, select their Location, Factory, and Section from dropdowns, and submit directly without login.
+              This universal QR code is permanently locked across all Master Lifestyle and Master Molty Foam factories. Any future updates to the app automatically appear when workers scan existing printed posters.
             </p>
             <p className="text-[11px] font-mono text-slate-500 mt-2 break-all">{directUrl}</p>
           </div>
@@ -130,29 +132,6 @@ const DepartmentQrCard: React.FC<DepartmentQrCardProps> = () => {
             </button>
           </div>
         </div>
-      </div>
-
-      <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end gap-3">
-        <div className="flex-1">
-          <label className="block text-[11px] font-bold text-slate-600 mb-1">
-            Hosted Portal Base URL (encoded inside Centralized QR code)
-          </label>
-          <input
-            type="url"
-            value={baseUrl}
-            onChange={(e) => handleBaseUrlChange(e.target.value)}
-            placeholder="https://your-hosted-app-url.com"
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:border-blue-600 focus:bg-white outline-none"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={handleResetBaseUrl}
-          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset URL</span>
-        </button>
       </div>
     </div>
   );

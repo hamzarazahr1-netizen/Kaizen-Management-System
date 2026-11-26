@@ -63,8 +63,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
   );
 
   const availableDepts = useMemo(() => {
+    if (selectedFactory === 'All' && availableFactories.length === 1) {
+      return getDepartmentsForFactory(availableFactories[0]);
+    }
     return getDepartmentsForFactory(selectedFactory);
-  }, [selectedFactory]);
+  }, [selectedFactory, availableFactories]);
 
   const handleLocationChange = (val: 'All' | Location) => {
     setSelectedLocation(val);
@@ -610,7 +613,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
                     Master Lifestyle Pvt. Ltd. — Section Participation
                   </h3>
                   <p className="text-xs text-slate-500">
-                    14 Sections ({selectedLocation === 'All' ? 'Karachi & Lahore' : selectedLocation}) · Goal 100%
+                    {FURNITURE_DEPARTMENTS.length} Sections ({selectedLocation === 'All' ? 'Karachi & Lahore' : selectedLocation}) · Goal 100%
                   </p>
                 </div>
               </div>
@@ -641,7 +644,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
                   Master Molty Foam — Section Participation
                 </h3>
                 <p className="text-xs text-slate-500">
-                  5 Sections ({selectedLocation === 'All' ? 'Karachi, Lahore & Mirpur' : selectedLocation}) · Goal 100%
+                  {MOLTY_FOAM_DEPARTMENTS.length} Sections ({selectedLocation === 'All' ? 'Karachi, Lahore & Mirpur' : selectedLocation}) · Goal 100%
                 </p>
               </div>
             </div>

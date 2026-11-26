@@ -19,7 +19,12 @@ import KaizenForm from './components/KaizenForm';
 import Records from './components/Records';
 import AdminGlobalAnalytics from './components/AdminGlobalAnalytics';
 import QuickSubmitPortal from './components/QuickSubmitPortal';
-import { parseQuickSubmitFromUrl, ParsedQuickSubmitTarget } from './utils/qrPdf';
+import {
+  parseQuickSubmitFromUrl,
+  ParsedQuickSubmitTarget,
+  fetchCloudPortalSettings,
+  normalizeBaseUrl
+} from './utils/qrPdf';
 
 enum OperationType {
   CREATE = 'create',
@@ -99,6 +104,22 @@ const AppContent: React.FC = () => {
   const [qrTarget, setQrTarget] = useState<ParsedQuickSubmitTarget | null>(() =>
     parseQuickSubmitFromUrl()
   );
+
+  useEffect(() => {
+    if (!qrTarget?.isQuickSubmit) return;
+    let active = true;
+    fetchCloudPortalSettings().then((settings) => {
+      if (!active) return;
+      const targetBase = settings.liveTargetUrl ? normalizeBaseUrl(settings.liveTargetUrl) : '';
+      const currentOrigin = normalizeBaseUrl(window.location.origin);
+      if (targetBase && targetBase !== currentOrigin && /^https?:\/\//i.test(targetBase)) {
+        window.location.replace(`${targetBase}/${window.location.search || '?q=1'}`);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [qrTarget?.isQuickSubmit]);
 
   useEffect(() => {
     if (!currentUser) {

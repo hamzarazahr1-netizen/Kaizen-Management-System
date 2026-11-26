@@ -66,11 +66,29 @@ service cloud.firestore {
              data.status in ['Pending', 'Accepted', 'Rejected'];
     }
 
+    function isValidPortalSettings(data) {
+      return data.keys().hasAll(['permanentBaseUrl']) &&
+             data.keys().hasOnly(['permanentBaseUrl', 'liveTargetUrl', 'updatedAt']) &&
+             data.permanentBaseUrl is string &&
+             data.permanentBaseUrl.size() >= 8 &&
+             data.permanentBaseUrl.size() <= 300 &&
+             data.permanentBaseUrl.matches('^https?://.*') &&
+             (!('liveTargetUrl' in data) || (data.liveTargetUrl is string && data.liveTargetUrl.size() <= 300 && (data.liveTargetUrl == '' || data.liveTargetUrl.matches('^https?://.*')))) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40));
+    }
+
     match /kaizens/{kaizenId} {
       // Departmental and Centralized QR portals use facility/section credentials in-app; strict schema & size validation enforced here
       allow read: if true;
       allow create: if isValidId(kaizenId) && isValidKaizen(request.resource.data);
       allow update: if isValidId(kaizenId) && isValidKaizen(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /settings/{settingId} {
+      allow get: if settingId == 'portal';
+      allow list: if false;
+      allow create, update: if settingId == 'portal' && isValidPortalSettings(request.resource.data);
       allow delete: if false;
     }
   }

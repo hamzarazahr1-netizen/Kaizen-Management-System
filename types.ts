@@ -153,7 +153,7 @@ export interface User {
 
 export const FURNITURE_DEPARTMENTS = [
   'Chair', 'Furniture', 'CHF', 'Polish', 'RM Store', 'Chair Store', 'FG Store',
-  'Weldshop', 'Logistic', 'Maintenance', 'HSE', 'Admin', 'PPMC', 'Department'
+  'Weldshop', 'Logistic', 'Maintenance', 'HSE', 'Admin', 'PPMC', 'Quality', 'Lean', 'Department'
 ];
 
 export const MOLTY_FOAM_DEPARTMENTS = [
@@ -183,6 +183,8 @@ export const SECTION_CODES: Record<string, string> = {
   'HSE': 'HSE',
   'Admin': 'AD',
   'PPMC': 'PP',
+  'Quality': 'QL',
+  'Lean': 'LN',
   'Department': 'DP',
   'Foam Section': 'FM',
   'Spring Section': 'SP',

@@ -1,5 +1,7 @@
 import QRCode from 'qrcode';
 import { jsPDF } from 'jspdf';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import {
   Factory,
   FACTORIES,
@@ -10,6 +12,14 @@ import {
 } from '../types';
 
 const QR_BASE_URL_STORAGE_KEY = 'mf_kaizen_qr_base_url';
+export const CANONICAL_SHARED_URL =
+  'https://ais-pre-fglkhswqptadousnldjqis-709457629561.asia-southeast1.run.app';
+
+export interface PortalQrSettings {
+  permanentBaseUrl: string;
+  liveTargetUrl?: string;
+  updatedAt?: string;
+}
 
 const toSlug = (val: string): string =>
   val
@@ -22,26 +32,39 @@ export function getFactoryCode(factory: Factory): string {
   return factory === Factory.MASTER_MOLTY_FOAM ? 'mf' : 'ls';
 }
 
+export function normalizeBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+export function isValidHttpUrl(url: string): boolean {
+  return /^https?:\/\/[^/\s]+/i.test(url.trim());
+}
+
 export function getDefaultPortalBaseUrl(): string {
   try {
     const saved = window.localStorage.getItem(QR_BASE_URL_STORAGE_KEY);
-    if (saved && /^https?:\/\//i.test(saved.trim())) {
-      return saved.trim().replace(/\/+$/, '');
+    if (saved && isValidHttpUrl(saved)) {
+      return normalizeBaseUrl(saved);
     }
   } catch {
     // Ignore storage access errors
   }
 
-  const origin = window.location.origin;
-  if (window.location.hostname.startsWith('ais-dev-')) {
-    return origin.replace('://ais-dev-', '://ais-pre-');
+  const host = window.location.hostname;
+  if (
+    host.startsWith('ais-dev-') ||
+    host.startsWith('ais-pre-') ||
+    host === 'localhost' ||
+    host === '127.0.0.1'
+  ) {
+    return CANONICAL_SHARED_URL;
   }
-  return origin;
+  return normalizeBaseUrl(window.location.origin);
 }
 
 export function savePortalBaseUrl(url: string): void {
   try {
-    const cleaned = url.trim().replace(/\/+$/, '');
+    const cleaned = normalizeBaseUrl(url);
     if (cleaned) {
       window.localStorage.setItem(QR_BASE_URL_STORAGE_KEY, cleaned);
     } else {
@@ -61,8 +84,55 @@ export function resetPortalBaseUrl(): string {
   return getDefaultPortalBaseUrl();
 }
 
+export async function fetchCloudPortalSettings(): Promise<PortalQrSettings> {
+  const fallbackBase = getDefaultPortalBaseUrl();
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'portal'));
+    if (snap.exists()) {
+      const data = snap.data() as Partial<PortalQrSettings>;
+      if (data.permanentBaseUrl && isValidHttpUrl(data.permanentBaseUrl)) {
+        const cleanPermanent = normalizeBaseUrl(data.permanentBaseUrl);
+        savePortalBaseUrl(cleanPermanent);
+        return {
+          permanentBaseUrl: cleanPermanent,
+          liveTargetUrl: data.liveTargetUrl ? normalizeBaseUrl(data.liveTargetUrl) : '',
+          updatedAt: data.updatedAt || ''
+        };
+      }
+    }
+  } catch {
+    // Fall back gracefully if offline or rules pending
+  }
+  return {
+    permanentBaseUrl: fallbackBase,
+    liveTargetUrl: ''
+  };
+}
+
+export async function saveCloudPortalSettings(settings: PortalQrSettings): Promise<PortalQrSettings> {
+  const cleanPermanent = normalizeBaseUrl(settings.permanentBaseUrl);
+  if (!isValidHttpUrl(cleanPermanent)) {
+    throw new Error('Please enter a valid http:// or https:// permanent portal URL.');
+  }
+
+  const cleanLive = settings.liveTargetUrl ? normalizeBaseUrl(settings.liveTargetUrl) : '';
+  if (cleanLive && !isValidHttpUrl(cleanLive)) {
+    throw new Error('Live redirect target must be a valid http:// or https:// URL.');
+  }
+
+  const payload: PortalQrSettings = {
+    permanentBaseUrl: cleanPermanent.slice(0, 300),
+    liveTargetUrl: cleanLive.slice(0, 300),
+    updatedAt: new Date().toISOString()
+  };
+
+  savePortalBaseUrl(payload.permanentBaseUrl);
+  await setDoc(doc(db, 'settings', 'portal'), payload);
+  return payload;
+}
+
 export function buildCentralizedQuickSubmitUrl(customBaseUrl?: string): string {
-  const base = (customBaseUrl || getDefaultPortalBaseUrl()).trim().replace(/\/+$/, '');
+  const base = normalizeBaseUrl(customBaseUrl || getDefaultPortalBaseUrl());
   return `${base}/?q=1`;
 }
 
@@ -71,7 +141,7 @@ export function buildQuickSubmitUrl(
   department?: string,
   customBaseUrl?: string
 ): string {
-  const base = (customBaseUrl || getDefaultPortalBaseUrl()).trim().replace(/\/+$/, '');
+  const base = normalizeBaseUrl(customBaseUrl || getDefaultPortalBaseUrl());
   if (!factory || !department) {
     return `${base}/?q=1`;
   }

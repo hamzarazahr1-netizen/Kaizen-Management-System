@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { FileDown, X, QrCode, Copy, Check, ExternalLink, RotateCcw } from 'lucide-react';
+import { FileDown, X, QrCode, Copy, Check, ExternalLink, RotateCcw, Save, CloudCheck } from 'lucide-react';
 import {
+  CANONICAL_SHARED_URL,
   buildCentralizedQuickSubmitUrl,
   generateQrDataUrl,
   downloadCentralizedQrPdf,
   getDefaultPortalBaseUrl,
   savePortalBaseUrl,
-  resetPortalBaseUrl
+  resetPortalBaseUrl,
+  fetchCloudPortalSettings,
+  saveCloudPortalSettings
 } from '../utils/qrPdf';
 
 interface QrPosterModalProps {
@@ -15,13 +18,27 @@ interface QrPosterModalProps {
 
 const QrPosterModal: React.FC<QrPosterModalProps> = ({ onClose }) => {
   const [baseUrl, setBaseUrl] = useState<string>(() => getDefaultPortalBaseUrl());
+  const [liveTargetUrl, setLiveTargetUrl] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSavingCloud, setIsSavingCloud] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [copied, setCopied] = useState(false);
 
   const directUrl = buildCentralizedQuickSubmitUrl(baseUrl);
-  const isAiStudioPreviewHost = baseUrl.includes('.run.app');
-  const isVercelHost = baseUrl.includes('.vercel.app') || baseUrl.includes('vercel.com');
+
+  useEffect(() => {
+    let active = true;
+    fetchCloudPortalSettings().then((settings) => {
+      if (!active) return;
+      setBaseUrl(settings.permanentBaseUrl || CANONICAL_SHARED_URL);
+      setLiveTargetUrl(settings.liveTargetUrl || '');
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -36,10 +53,35 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({ onClose }) => {
   const handleBaseUrlChange = (val: string) => {
     setBaseUrl(val);
     savePortalBaseUrl(val);
+    setSaveMessage('');
+    setSaveError('');
   };
 
   const handleResetBaseUrl = () => {
-    setBaseUrl(resetPortalBaseUrl());
+    const reset = resetPortalBaseUrl();
+    setBaseUrl(reset);
+    setLiveTargetUrl('');
+    setSaveMessage('');
+    setSaveError('');
+  };
+
+  const handleSaveCloudSettings = async () => {
+    setIsSavingCloud(true);
+    setSaveError('');
+    setSaveMessage('');
+    try {
+      const saved = await saveCloudPortalSettings({
+        permanentBaseUrl: baseUrl,
+        liveTargetUrl
+      });
+      setBaseUrl(saved.permanentBaseUrl);
+      setLiveTargetUrl(saved.liveTargetUrl || '');
+      setSaveMessage('Permanent QR link locked across all Pakistan locations.');
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Unable to save permanent QR settings.');
+    } finally {
+      setIsSavingCloud(false);
+    }
   };
 
   const handleDownloadPdf = async () => {
@@ -70,9 +112,9 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({ onClose }) => {
       <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden max-h-[92vh] overflow-y-auto">
         <div className="bg-slate-900 px-6 py-4 text-white flex items-center justify-between sticky top-0 z-10">
           <div>
-            <h3 className="text-sm font-bold">Centralized Pakistan Kaizen QR Poster (PDF)</h3>
+            <h3 className="text-sm font-bold">Permanent Centralized Pakistan Kaizen QR (PDF)</h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Single universal QR code for Karachi, Lahore & Mirpur facilities
+              One fixed QR code for Karachi, Lahore & Mirpur — future updates deploy automatically without reprinting
             </p>
           </div>
           <button
@@ -86,37 +128,71 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({ onClose }) => {
         </div>
 
         <div className="p-6 space-y-5">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-slate-600">
-                Hosted Portal Base URL (for QR Link)
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3.5 text-xs text-emerald-950 space-y-1">
+            <p className="font-bold flex items-center gap-1.5">
+              <CloudCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>Print Once — Auto-Updated Across Future Releases</span>
+            </p>
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              This QR code points permanently to your Shared Portal URL. Whenever you publish updates to the app, existing printed shopfloor QR posters open the new version automatically without needing a new printout.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  Permanent Shopfloor Portal URL (Encoded in Printed QR)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleResetBaseUrl}
+                  className="text-[11px] font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Use Default</span>
+                </button>
+              </div>
+              <input
+                type="url"
+                value={baseUrl}
+                onChange={(e) => handleBaseUrlChange(e.target.value)}
+                placeholder={CANONICAL_SHARED_URL}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 text-slate-900 outline-none focus:border-blue-600 focus:bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Optional Live Redirect URL (Only if hosting domain ever moves later)
               </label>
+              <input
+                type="url"
+                value={liveTargetUrl}
+                onChange={(e) => {
+                  setLiveTargetUrl(e.target.value);
+                  setSaveMessage('');
+                  setSaveError('');
+                }}
+                placeholder="Leave blank to serve directly on the permanent URL above"
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 text-slate-900 outline-none focus:border-blue-600 focus:bg-white"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={handleResetBaseUrl}
-                className="text-[11px] font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1"
+                onClick={handleSaveCloudSettings}
+                disabled={isSavingCloud}
+                className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-60"
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset</span>
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSavingCloud ? 'Saving...' : 'Lock Permanent QR Link in Cloud'}</span>
               </button>
+
+              {saveMessage && <span className="text-[11px] font-semibold text-emerald-700">{saveMessage}</span>}
+              {saveError && <span className="text-[11px] font-semibold text-red-700">{saveError}</span>}
             </div>
-            <input
-              type="url"
-              value={baseUrl}
-              onChange={(e) => handleBaseUrlChange(e.target.value)}
-              placeholder="https://your-hosted-app-url.com"
-              className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 text-slate-900 outline-none focus:border-blue-600 focus:bg-white"
-            />
-            {isAiStudioPreviewHost && (
-              <p className="text-[11px] text-amber-700 mt-1">
-                Paste your public hosted URL (e.g. Vercel / Firebase Hosting) above if hosted externally, so mobile scanners open the public site directly.
-              </p>
-            )}
-            {isVercelHost && (
-              <p className="text-[11px] text-amber-700 mt-1">
-                Vercel Note: Use your main Production domain and disable Vercel Authentication in Deployment Protection so shop-floor phones open the form immediately.
-              </p>
-            )}
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col items-center text-center">

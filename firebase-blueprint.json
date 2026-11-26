@@ -67,12 +67,27 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "location", "factory", "department", "initiator", "submissionDate", "type", "status", "problem", "solution", "month"]
+    },
+    "PortalSettings": {
+      "title": "PortalSettings",
+      "description": "Permanent QR code base URL and optional live redirect target shared across all facilities",
+      "type": "object",
+      "properties": {
+        "permanentBaseUrl": { "type": "string", "maxLength": 300, "pattern": "^https?://.*" },
+        "liveTargetUrl": { "type": "string", "maxLength": 300 },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["permanentBaseUrl"]
     }
   },
   "firestore": {
     "/kaizens": {
       "schema": "Kaizen",
       "description": "Collection of all Kaizen submissions across Karachi, Lahore, and Mirpur factories"
+    },
+    "/settings": {
+      "schema": "PortalSettings",
+      "description": "Singleton portal configuration storing permanent shopfloor QR link and live target URL"
     }
   }
 }
