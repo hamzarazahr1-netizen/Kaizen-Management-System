@@ -2,13 +2,22 @@
   "entities": {
     "Kaizen": {
       "title": "Kaizen",
-      "description": "A Kaizen submission for process improvement across Master Furnishings factories",
+      "description": "A Kaizen submission for process improvement across Master Group of Industries factories in Karachi, Lahore, and Mirpur",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "location": {
+          "type": "string",
+          "enum": ["Karachi", "Lahore", "Mirpur"]
+        },
         "factory": {
           "type": "string",
-          "enum": ["Karachi Furniture Factory", "Karachi Molty Foam Port Qasim"]
+          "enum": [
+            "Master Lifestyle Pvt. Ltd.",
+            "Master Molty Foam",
+            "Karachi Furniture Factory",
+            "Karachi Molty Foam Port Qasim"
+          ]
         },
         "department": { "type": "string", "maxLength": 100 },
         "initiator": { "type": "string", "maxLength": 100 },
@@ -34,15 +43,36 @@
         "month": { "type": "string", "maxLength": 30 },
         "beforeImg": { "type": "string", "maxLength": 900000 },
         "afterImg": { "type": "string", "maxLength": 900000 },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "evaluation": {
+          "type": "object",
+          "properties": {
+            "scores": {
+              "type": "object",
+              "properties": {
+                "problemIdentification": { "type": "number" },
+                "rootCauseAnalysis": { "type": "number" },
+                "creativityInnovation": { "type": "number" },
+                "impactOnResults": { "type": "number" },
+                "sustainability": { "type": "number" },
+                "employeeInvolvement": { "type": "number" },
+                "abilityToYokoten": { "type": "number" }
+              }
+            },
+            "aggregateScore": { "type": "number" },
+            "percentage": { "type": "number" },
+            "evaluatedAt": { "type": "string", "maxLength": 40 }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "factory", "department", "initiator", "submissionDate", "type", "status", "problem", "solution", "month"]
+      "required": ["id", "location", "factory", "department", "initiator", "submissionDate", "type", "status", "problem", "solution", "month"]
     }
   },
   "firestore": {
     "/kaizens": {
       "schema": "Kaizen",
-      "description": "Collection of all Kaizen submissions across factories"
+      "description": "Collection of all Kaizen submissions across Karachi, Lahore, and Mirpur factories"
     }
   }
 }

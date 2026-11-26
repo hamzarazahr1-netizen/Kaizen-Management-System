@@ -12,14 +12,14 @@ import {
 } from 'firebase/firestore';
 import { LogOut, LayoutDashboard, PlusCircle, FileText, BarChart3 } from 'lucide-react';
 import { db } from './firebase';
-import { User, Kaizen, Factory, MOLTY_FOAM_DEPARTMENTS } from './types';
+import { User, Kaizen, normalizeKaizenRecord } from './types';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import KaizenForm from './components/KaizenForm';
 import Records from './components/Records';
 import AdminGlobalAnalytics from './components/AdminGlobalAnalytics';
 import QuickSubmitPortal from './components/QuickSubmitPortal';
-import { parseQuickSubmitFromUrl } from './utils/qrPdf';
+import { parseQuickSubmitFromUrl, ParsedQuickSubmitTarget } from './utils/qrPdf';
 
 enum OperationType {
   CREATE = 'create',
@@ -38,6 +38,14 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+function stripUndefined<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  return clean;
 }
 
 interface ErrorBoundaryProps {
@@ -88,7 +96,7 @@ const AppContent: React.FC = () => {
   const [kaizens, setKaizens] = useState<Kaizen[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'submit' | 'records' | 'analytics'>('dashboard');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [qrTarget, setQrTarget] = useState<{ factory: Factory; department: string } | null>(() =>
+  const [qrTarget, setQrTarget] = useState<ParsedQuickSubmitTarget | null>(() =>
     parseQuickSubmitFromUrl()
   );
 
@@ -105,19 +113,9 @@ const AppContent: React.FC = () => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const data = snapshot.docs.map((docSnap) => {
-          const raw = docSnap.data();
-          const inferredFactory: Factory =
-            raw.factory === Factory.MOLTY_FOAM || MOLTY_FOAM_DEPARTMENTS.includes(raw.department)
-              ? Factory.MOLTY_FOAM
-              : Factory.FURNITURE;
-
-          return {
-            ...raw,
-            id: docSnap.id,
-            factory: inferredFactory
-          } as Kaizen;
-        });
+        const data = snapshot.docs.map((docSnap) =>
+          normalizeKaizenRecord(docSnap.data(), docSnap.id)
+        );
         setKaizens(data);
         setIsSyncing(false);
       },
@@ -134,16 +132,14 @@ const AppContent: React.FC = () => {
     setIsSyncing(true);
     try {
       const kaizensRef = collection(db, 'kaizens');
+      const payload = stripUndefined({
+        ...newKaizen,
+        createdAt: serverTimestamp()
+      });
       if (newKaizen.id) {
-        await setDoc(doc(db, 'kaizens', newKaizen.id), {
-          ...newKaizen,
-          createdAt: serverTimestamp()
-        });
+        await setDoc(doc(db, 'kaizens', newKaizen.id), payload);
       } else {
-        await addDoc(kaizensRef, {
-          ...newKaizen,
-          createdAt: serverTimestamp()
-        });
+        await addDoc(kaizensRef, payload);
       }
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, 'kaizens');
@@ -161,10 +157,21 @@ const AppContent: React.FC = () => {
     setIsSyncing(true);
     try {
       const kaizenRef = doc(db, 'kaizens', updatedKaizen.id);
-      await updateDoc(kaizenRef, {
-        ...updatedKaizen,
+      const {
+        baseReward: _br,
+        position: _pos,
+        positionLabel: _pl,
+        positionBonus: _pb,
+        totalReward: _tr,
+        ...pureKaizen
+      } = updatedKaizen as Kaizen & Record<string, any>;
+
+      const cleanPayload = stripUndefined({
+        ...pureKaizen,
         updatedAt: serverTimestamp()
       });
+
+      await updateDoc(kaizenRef, cleanPayload);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `kaizens/${updatedKaizen.id}`);
     } finally {
@@ -187,11 +194,12 @@ const AppContent: React.FC = () => {
 
   const handleLogout = () => setCurrentUser(null);
 
-  if (!currentUser && qrTarget) {
+  if (!currentUser && qrTarget?.isQuickSubmit) {
     return (
       <QuickSubmitPortal
-        factory={qrTarget.factory}
-        department={qrTarget.department}
+        initialLocation={qrTarget.location}
+        initialFactory={qrTarget.factory}
+        initialDepartment={qrTarget.department}
         onSubmit={saveKaizenToFirestore}
         onGoToLogin={handleExitQrMode}
       />
@@ -223,12 +231,12 @@ const AppContent: React.FC = () => {
           </div>
           <div className="hidden sm:block border-l border-slate-200 pl-4 min-w-0">
             <h1 className="text-sm font-extrabold text-slate-900 tracking-tight truncate">
-              {currentUser.role === 'ADMIN' ? 'Lean & Transformation Portal' : 'Master Kaizen Management System'}
+              {currentUser.role === 'ADMIN' ? 'Kaizen Committee · Management Portal' : 'Master Kaizen Management System'}
             </h1>
             <p className="text-xs text-slate-500 truncate">
               {currentUser.role === 'ADMIN'
-                ? 'Master Lifestyle & Master Molty Foam Karachi Factories'
-                : `${currentUser.factory} · ${currentUser.department}`}
+                ? 'Master Lifestyle & Master Molty Foam · Karachi, Lahore & Mirpur'
+                : `${currentUser.location} · ${currentUser.factory} · ${currentUser.department}`}
             </p>
           </div>
         </div>
@@ -282,7 +290,7 @@ const AppContent: React.FC = () => {
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>Global Analytics</span>
+              <span>Finance & Analytics</span>
             </button>
           )}
         </nav>
@@ -291,7 +299,9 @@ const AppContent: React.FC = () => {
           <div className="text-right hidden xl:block">
             <p className="text-xs font-bold text-slate-900">{currentUser.department}</p>
             <p className="text-[11px] text-slate-500">
-              {currentUser.role === 'ADMIN' ? 'Management Access' : currentUser.factory}
+              {currentUser.role === 'ADMIN'
+                ? 'All Pakistan Access'
+                : `${currentUser.location} · ${currentUser.factory}`}
             </p>
           </div>
           <button
@@ -339,21 +349,27 @@ const AppContent: React.FC = () => {
               activeTab === 'analytics' ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-500'
             }`}
           >
-            Global Analytics
+            Finance & Analytics
           </button>
         )}
       </nav>
 
       <main className="flex-1 overflow-auto p-4 md:p-6 pb-20">
         <div className="max-w-7xl mx-auto">
-          {activeTab === 'dashboard' && <Dashboard user={currentUser} kaizens={kaizens} />}
-          {activeTab === 'submit' && currentUser.role === 'DEPARTMENT' && currentUser.factory !== 'ALL' && (
-            <KaizenForm
-              factory={currentUser.factory}
-              department={currentUser.department}
-              onSubmit={addKaizen}
-            />
+          {activeTab === 'dashboard' && (
+            <Dashboard user={currentUser} kaizens={kaizens} onNavigateTab={setActiveTab} />
           )}
+          {activeTab === 'submit' &&
+            currentUser.role === 'DEPARTMENT' &&
+            currentUser.location !== 'ALL' &&
+            currentUser.factory !== 'ALL' && (
+              <KaizenForm
+                location={currentUser.location}
+                factory={currentUser.factory}
+                department={currentUser.department}
+                onSubmit={addKaizen}
+              />
+            )}
           {activeTab === 'records' && (
             <Records user={currentUser} kaizens={kaizens} onUpdate={updateKaizen} />
           )}
@@ -366,7 +382,8 @@ const AppContent: React.FC = () => {
       <footer className="bg-white border-t border-slate-200 py-3 px-6 text-xs text-slate-500">
         <div className="flex flex-col sm:flex-row justify-between items-center max-w-7xl mx-auto gap-2">
           <p className="font-medium">
-            © 2026 Master Furnishings Pvt. Ltd. <span aria-hidden="true">·</span> Lean & Transformation Portal {isSyncing ? '· Syncing...' : ''}
+            © 2026 Master Group of Industries <span aria-hidden="true">·</span> Kaizen Management System (Karachi · Lahore · Mirpur){' '}
+            {isSyncing ? '· Syncing...' : ''}
           </p>
           <p className="font-semibold text-slate-400">Developed by Hamza Raza</p>
         </div>

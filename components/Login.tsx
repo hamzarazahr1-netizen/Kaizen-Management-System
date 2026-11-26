@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Building2, Lock, UserCheck, ChevronRight } from 'lucide-react';
+import { Building2, Lock, MapPin, UserCheck, ChevronRight, ShieldCheck } from 'lucide-react';
 import {
   User,
+  Location,
+  LOCATIONS,
   Factory,
-  FACTORIES,
+  LOCATION_FACTORIES,
   FACTORY_DEPARTMENTS,
   MOLTY_FOAM_DEPARTMENTS
 } from '../types';
@@ -28,16 +30,30 @@ const MOLTY_ALIASES: Record<string, string> = {
 };
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [selectedFactory, setSelectedFactory] = useState<Factory>(Factory.FURNITURE);
-  const [id, setId] = useState('');
+  const [loginMode, setLoginMode] = useState<'SECTION' | 'ADMIN'>('SECTION');
+  const [selectedLocation, setSelectedLocation] = useState<Location>(Location.KARACHI);
+  const [selectedFactory, setSelectedFactory] = useState<Factory>(Factory.MASTER_LIFESTYLE);
+  const [sectionInput, setSectionInput] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  const availableFactories = LOCATION_FACTORIES[selectedLocation];
   const availableUnits = FACTORY_DEPARTMENTS[selectedFactory];
+
+  const handleLocationChange = (loc: Location) => {
+    setSelectedLocation(loc);
+    const factoriesForLoc = LOCATION_FACTORIES[loc];
+    const nextFactory = factoriesForLoc.includes(selectedFactory)
+      ? selectedFactory
+      : factoriesForLoc[0];
+    setSelectedFactory(nextFactory);
+    setSectionInput('');
+    setError('');
+  };
 
   const handleFactoryChange = (factory: Factory) => {
     setSelectedFactory(factory);
-    setId('');
+    setSectionInput('');
     setError('');
   };
 
@@ -45,54 +61,63 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setError('');
 
-    const normalizedInput = id.trim();
+    const normalizedInput = sectionInput.trim();
     const normalizedId = normalizedInput.toLowerCase();
 
-    // Admin Login -> Unified Lean & Transformation Portal covering both factories
-    if (normalizedId === 'admin' && password === 'Lean2025') {
+    // Kaizen Committee / Management Admin Login
+    if (
+      (loginMode === 'ADMIN' && (normalizedId === '' || normalizedId === 'admin') && password === 'Lean2025') ||
+      (normalizedId === 'admin' && password === 'Lean2025')
+    ) {
       onLogin({
         id: 'admin',
-        name: 'Lean & Transformation Admin',
+        name: 'Kaizen Committee Admin',
         role: 'ADMIN',
-        department: 'Lean & Transformation',
+        department: 'Kaizen Committee · Management',
+        location: 'ALL',
         factory: 'ALL'
       });
       return;
     }
 
-    // Department / Section Login scoped to selected Factory
+    if (loginMode === 'ADMIN') {
+      setError('Invalid Management credentials. Verify Admin ID and Password.');
+      return;
+    }
+
+    // Section Login scoped to selected Location > Factory > Section
     let deptMatch: string | undefined;
-    if (selectedFactory === Factory.MOLTY_FOAM) {
+    if (selectedFactory === Factory.MASTER_MOLTY_FOAM) {
       deptMatch =
-        MOLTY_FOAM_DEPARTMENTS.find(d => d.toLowerCase() === normalizedId) ||
+        MOLTY_FOAM_DEPARTMENTS.find((d) => d.toLowerCase() === normalizedId) ||
         MOLTY_ALIASES[normalizedId];
     } else {
-      deptMatch = availableUnits.find(d => d.toLowerCase() === normalizedId);
+      deptMatch = availableUnits.find((d) => d.toLowerCase() === normalizedId);
     }
 
     if (deptMatch && password === '123') {
-      const factoryPrefix = selectedFactory === Factory.MOLTY_FOAM ? 'molty' : 'furniture';
+      const locSlug = selectedLocation.toLowerCase();
+      const facSlug = selectedFactory === Factory.MASTER_MOLTY_FOAM ? 'molty' : 'lifestyle';
       onLogin({
-        id: `${factoryPrefix}_${deptMatch.toLowerCase().replace(/\s+/g, '_')}`,
+        id: `${locSlug}_${facSlug}_${deptMatch.toLowerCase().replace(/\s+/g, '_')}`,
         name: deptMatch,
         role: 'DEPARTMENT',
         department: deptMatch,
+        location: selectedLocation,
         factory: selectedFactory
       });
       return;
     }
 
     setError(
-      `Authentication failed for ${selectedFactory}. Verify your ${
-        selectedFactory === Factory.MOLTY_FOAM ? 'Section' : 'Department'
-      } ID and Password.`
+      `Authentication failed for ${selectedLocation} · ${selectedFactory}. Verify your Section and Password.`
     );
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 md:p-8 text-slate-900">
-      <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-800 grid grid-cols-1 lg:grid-cols-12">
-        {/* Left Brand & Factory Context Panel */}
+      <div className="w-full max-w-5xl bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-800 grid grid-cols-1 lg:grid-cols-12">
+        {/* Left Brand & Pakistan Operations Context */}
         <div className="lg:col-span-5 bg-[#f4f5f6] border-b lg:border-b-0 lg:border-r border-slate-200 p-8 flex flex-col justify-between">
           <div>
             <div className="mb-7 flex items-center gap-4">
@@ -115,20 +140,34 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               Master Kaizen Management System
             </h1>
             <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Centralized continuous improvement tracking, section performance analytics, and reward disbursement across Master Lifestyle and Master Molty Foam Karachi Factories.
+              Group-wide continuous improvement platform across Pakistan — connecting Karachi, Lahore, and Mirpur facilities under Master Lifestyle Pvt. Ltd. and Master Molty Foam.
             </p>
+
+            <div className="mt-6 pt-5 border-t border-slate-200 space-y-2 text-xs text-slate-700">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Pakistan Group Footprint
+              </p>
+              <div className="space-y-1.5">
+                <p><span className="font-bold text-slate-900">Karachi:</span> Master Lifestyle Pvt. Ltd. · Master Molty Foam</p>
+                <p><span className="font-bold text-slate-900">Lahore:</span> Master Lifestyle Pvt. Ltd. · Master Molty Foam</p>
+                <p><span className="font-bold text-slate-900">Mirpur:</span> Master Molty Foam</p>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-slate-200 space-y-3">
+          <div className="mt-8 pt-6 border-t border-slate-200 space-y-2.5">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              {selectedFactory === Factory.MOLTY_FOAM ? 'Port Qasim Sections' : 'Furniture Factory Units'}
+              {selectedLocation} · {selectedFactory} Sections
             </p>
             <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-slate-600 leading-relaxed">
               {availableUnits.map((unit, idx) => (
                 <React.Fragment key={unit}>
                   <button
                     type="button"
-                    onClick={() => setId(unit)}
+                    onClick={() => {
+                      setLoginMode('SECTION');
+                      setSectionInput(unit);
+                    }}
                     className="hover:text-blue-700 hover:underline font-medium text-left transition-colors"
                   >
                     {unit}
@@ -144,11 +183,46 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         {/* Right Sign-In Form */}
         <div className="lg:col-span-7 p-8 md:p-10 bg-white">
-          <div className="mb-6">
-            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Facility Sign In</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Select your factory unit below, or sign in with Management Admin credentials.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Facility Sign In</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Choose your location, factory, and section to open your dashboard.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg shrink-0 self-start">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMode('SECTION');
+                  setError('');
+                  if (sectionInput.toLowerCase() === 'admin') setSectionInput('');
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
+                  loginMode === 'SECTION'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Section Portal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMode('ADMIN');
+                  setSectionInput('admin');
+                  setError('');
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
+                  loginMode === 'ADMIN'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Kaizen Committee
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -158,91 +232,159 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             )}
 
-            {/* Factory Selector */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">
-                Select Factory
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {FACTORIES.map((factory) => {
-                  const isActive = selectedFactory === factory;
-                  const unitCount = FACTORY_DEPARTMENTS[factory].length;
-                  return (
-                    <button
-                      key={factory}
-                      type="button"
-                      onClick={() => handleFactoryChange(factory)}
-                      className={`p-3.5 rounded-lg border text-left transition-all flex flex-col gap-1 ${
-                        isActive
-                          ? 'border-blue-700 bg-blue-50/70 ring-1 ring-blue-700'
-                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
-                      }`}
+            {loginMode === 'SECTION' ? (
+              <>
+                {/* Step 1: Location Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">
+                    1. Select Location
+                  </label>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {LOCATIONS.map((loc) => {
+                      const isActive = selectedLocation === loc;
+                      const facCount = LOCATION_FACTORIES[loc].length;
+                      return (
+                        <button
+                          key={loc}
+                          type="button"
+                          onClick={() => handleLocationChange(loc)}
+                          className={`p-3 rounded-lg border text-left transition-all ${
+                            isActive
+                              ? 'border-blue-700 bg-blue-50/70 ring-1 ring-blue-700'
+                              : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <MapPin className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-700' : 'text-slate-400'}`} />
+                            <span className={`text-[11px] font-semibold tabular-nums ${isActive ? 'text-blue-700' : 'text-slate-400'}`}>
+                              {facCount} {facCount === 1 ? 'Factory' : 'Factories'}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-bold block ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>
+                            {loc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 2: Factory Selector (filtered by Location) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">
+                    2. Select Factory ({selectedLocation})
+                  </label>
+                  <div className={`grid gap-2.5 ${availableFactories.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                    {availableFactories.map((factory) => {
+                      const isActive = selectedFactory === factory;
+                      const unitCount = FACTORY_DEPARTMENTS[factory].length;
+                      return (
+                        <button
+                          key={factory}
+                          type="button"
+                          onClick={() => handleFactoryChange(factory)}
+                          className={`p-3.5 rounded-lg border text-left transition-all flex flex-col gap-1 ${
+                            isActive
+                              ? 'border-blue-700 bg-blue-50/70 ring-1 ring-blue-700'
+                              : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <Building2 className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-700' : 'text-slate-400'}`} />
+                            <span className={`text-[11px] font-semibold tabular-nums ${isActive ? 'text-blue-700' : 'text-slate-400'}`}>
+                              {unitCount} Sections
+                            </span>
+                          </div>
+                          <span className={`text-xs font-bold leading-snug ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>
+                            {factory}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 3: Section Selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      3. Choose Section
+                    </label>
+                    <select
+                      value={availableUnits.includes(sectionInput) ? sectionInput : ''}
+                      onChange={(e) => {
+                        if (e.target.value) setSectionInput(e.target.value);
+                      }}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-blue-700 focus:bg-white outline-none transition-all"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <Building2 className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-700' : 'text-slate-400'}`} />
-                        <span className={`text-[11px] font-semibold tabular-nums ${isActive ? 'text-blue-700' : 'text-slate-400'}`}>
-                          {unitCount} {factory === Factory.MOLTY_FOAM ? 'Sections' : 'Depts'}
-                        </span>
-                      </div>
-                      <span className={`text-xs font-bold leading-snug ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>
-                        {factory}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      <option value="">Select section...</option>
+                      {availableUnits.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-            {/* Quick Unit Selector + Department ID Input */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Quick Select {selectedFactory === Factory.MOLTY_FOAM ? 'Section' : 'Department'}
-                </label>
-                <select
-                  value={availableUnits.includes(id) ? id : ''}
-                  onChange={(e) => {
-                    if (e.target.value) setId(e.target.value);
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-blue-700 focus:bg-white outline-none transition-all"
-                >
-                  <option value="">Choose unit...</option>
-                  {availableUnits.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Or Type Section ID
+                    </label>
+                    <div className="relative">
+                      <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={sectionInput}
+                        onChange={(e) => setSectionInput(e.target.value)}
+                        list="factory-unit-list"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-blue-700 focus:bg-white outline-none transition-all placeholder:text-slate-400"
+                        placeholder={selectedFactory === Factory.MASTER_MOLTY_FOAM ? 'e.g. Foam Section' : 'e.g. Chair'}
+                        required
+                      />
+                      <datalist id="factory-unit-list">
+                        {availableUnits.map((unit) => (
+                          <option key={unit} value={unit} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+                  <div className="text-xs text-slate-600 leading-relaxed">
+                    <p className="font-bold text-slate-900">Kaizen Committee & Management Access</p>
+                    <p className="mt-0.5">
+                      Review pending Kaizens across Karachi, Lahore, and Mirpur, evaluate submissions against the 7-criteria judgment matrix, and view segregated Finance reward summaries.
+                    </p>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  {selectedFactory === Factory.MOLTY_FOAM ? 'Section / Admin ID' : 'Department / Admin ID'}
-                </label>
-                <div className="relative">
-                  <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={id}
-                    onChange={(e) => setId(e.target.value)}
-                    list="factory-unit-list"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-blue-700 focus:bg-white outline-none transition-all placeholder:text-slate-400"
-                    placeholder={selectedFactory === Factory.MOLTY_FOAM ? 'e.g. Foam Section' : 'e.g. Chair'}
-                    required
-                  />
-                  <datalist id="factory-unit-list">
-                    {availableUnits.map((unit) => (
-                      <option key={unit} value={unit} />
-                    ))}
-                  </datalist>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Management Admin ID
+                  </label>
+                  <div className="relative">
+                    <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={sectionInput}
+                      onChange={(e) => setSectionInput(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-blue-700 focus:bg-white outline-none transition-all"
+                      placeholder="admin"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Password */}
+            {/* Step 4: Password */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Access Password
+                {loginMode === 'ADMIN' ? 'Management Password' : '4. Section Password'}
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -261,13 +403,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               type="submit"
               className="w-full bg-slate-900 hover:bg-blue-800 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-4 rounded-lg transition-all shadow-sm active:scale-[0.99] flex items-center justify-center gap-2"
             >
-              <span>Sign In to Portal</span>
+              <span>{loginMode === 'ADMIN' ? 'Open Management Dashboard' : 'Sign In to Section Portal'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
 
             <div className="pt-4 border-t border-slate-100 text-center">
               <p className="text-[11px] text-slate-500">
-                Authorized Personnel Only · Use your {selectedFactory === Factory.MOLTY_FOAM ? 'Section' : 'Department'} Name as ID (Pass: <span className="font-mono font-semibold text-slate-700">123</span>)
+                {loginMode === 'ADMIN'
+                  ? 'Kaizen Committee Admin ID: admin'
+                  : 'Authorized Personnel Only · Select Location, Factory & Section (Pass: 123)'}
               </p>
             </div>
           </form>

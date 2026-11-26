@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { FileDown, X, QrCode, Layers, RotateCcw } from 'lucide-react';
-import { Factory, FACTORIES, getDepartmentsForFactory } from '../types';
+import { FileDown, X, QrCode, Copy, Check, ExternalLink, RotateCcw } from 'lucide-react';
 import {
-  buildQuickSubmitUrl,
+  buildCentralizedQuickSubmitUrl,
   generateQrDataUrl,
-  downloadDepartmentQrPdf,
-  downloadAllFactoryQrPdf,
+  downloadCentralizedQrPdf,
   getDefaultPortalBaseUrl,
   savePortalBaseUrl,
   resetPortalBaseUrl
@@ -13,26 +11,27 @@ import {
 
 interface QrPosterModalProps {
   onClose: () => void;
-  initialFactory?: Factory;
 }
 
-const QrPosterModal: React.FC<QrPosterModalProps> = ({
-  onClose,
-  initialFactory = Factory.FURNITURE
-}) => {
+const QrPosterModal: React.FC<QrPosterModalProps> = ({ onClose }) => {
   const [baseUrl, setBaseUrl] = useState<string>(() => getDefaultPortalBaseUrl());
-  const [factory, setFactory] = useState<Factory>(initialFactory);
-  const units = getDepartmentsForFactory(factory);
-  const [department, setDepartment] = useState<string>(units[0]);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [isDownloadingSingle, setIsDownloadingSingle] = useState(false);
-  const [isDownloadingBatch, setIsDownloadingBatch] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleFactoryChange = (nextFactory: Factory) => {
-    setFactory(nextFactory);
-    const nextUnits = getDepartmentsForFactory(nextFactory);
-    setDepartment(nextUnits[0]);
-  };
+  const directUrl = buildCentralizedQuickSubmitUrl(baseUrl);
+  const isAiStudioPreviewHost = baseUrl.includes('.run.app');
+  const isVercelHost = baseUrl.includes('.vercel.app') || baseUrl.includes('vercel.com');
+
+  useEffect(() => {
+    let active = true;
+    generateQrDataUrl(directUrl, 420).then((url) => {
+      if (active) setQrDataUrl(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [directUrl]);
 
   const handleBaseUrlChange = (val: string) => {
     setBaseUrl(val);
@@ -43,36 +42,27 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({
     setBaseUrl(resetPortalBaseUrl());
   };
 
-  const directUrl = buildQuickSubmitUrl(factory, department, baseUrl);
-  const isAiStudioPreviewHost = baseUrl.includes('.run.app');
-  const isVercelHost = baseUrl.includes('.vercel.app') || baseUrl.includes('vercel.com');
-
-  useEffect(() => {
-    let active = true;
-    generateQrDataUrl(directUrl, 400).then(url => {
-      if (active) setQrDataUrl(url);
-    });
-    return () => {
-      active = false;
-    };
-  }, [directUrl]);
-
-  const handleSingleDownload = async () => {
-    setIsDownloadingSingle(true);
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
     try {
-      await downloadDepartmentQrPdf(factory, department, baseUrl);
+      await downloadCentralizedQrPdf(baseUrl);
     } finally {
-      setIsDownloadingSingle(false);
+      setIsDownloading(false);
     }
   };
 
-  const handleBatchDownload = async () => {
-    setIsDownloadingBatch(true);
+  const handleCopy = async () => {
     try {
-      await downloadAllFactoryQrPdf(factory, baseUrl);
-    } finally {
-      setIsDownloadingBatch(false);
+      await navigator.clipboard.writeText(directUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Ignore clipboard failure
     }
+  };
+
+  const handleTestForm = () => {
+    window.location.href = buildCentralizedQuickSubmitUrl(window.location.origin);
   };
 
   return (
@@ -80,8 +70,10 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({
       <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden max-h-[92vh] overflow-y-auto">
         <div className="bg-slate-900 px-6 py-4 text-white flex items-center justify-between sticky top-0 z-10">
           <div>
-            <h3 className="text-sm font-bold">Department QR Code Posters (PDF)</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Generate printable direct-submission QR posters</p>
+            <h3 className="text-sm font-bold">Centralized Pakistan Kaizen QR Poster (PDF)</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Single universal QR code for Karachi, Lahore & Mirpur facilities
+            </p>
           </div>
           <button
             type="button"
@@ -117,78 +109,60 @@ const QrPosterModal: React.FC<QrPosterModalProps> = ({
             />
             {isAiStudioPreviewHost && (
               <p className="text-[11px] text-amber-700 mt-1">
-                Paste your public hosted URL (e.g. Vercel / Netlify / Firebase Hosting) above if your app is hosted externally, so Google Lens opens the live site without Page Not Found.
+                Paste your public hosted URL (e.g. Vercel / Firebase Hosting) above if hosted externally, so mobile scanners open the public site directly.
               </p>
             )}
             {isVercelHost && (
               <p className="text-[11px] text-amber-700 mt-1">
-                Vercel Note: Use your main Production domain and disable <strong>Vercel Authentication</strong> in Vercel Project Settings → Deployment Protection so mobile phones are not asked to log in to Vercel.
+                Vercel Note: Use your main Production domain and disable Vercel Authentication in Deployment Protection so shop-floor phones open the form immediately.
               </p>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">Factory</label>
-              <select
-                value={factory}
-                onChange={(e) => handleFactoryChange(e.target.value as Factory)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
-              >
-                {FACTORIES.map(f => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                {factory === Factory.MOLTY_FOAM ? 'Section' : 'Department'}
-              </label>
-              <select
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
-              >
-                {units.map(u => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col items-center text-center">
-            <div className="w-40 h-40 bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col items-center text-center">
+            <div className="w-44 h-44 bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center">
               {qrDataUrl ? (
-                <img src={qrDataUrl} alt={`QR Code for ${department}`} className="w-full h-full object-contain" />
+                <img src={qrDataUrl} alt="Centralized Pakistan Kaizen QR Code" className="w-full h-full object-contain" />
               ) : (
                 <QrCode className="w-10 h-10 text-slate-300" />
               )}
             </div>
-            <p className="text-sm font-extrabold text-slate-900 mt-3">{department}</p>
-            <p className="text-xs text-slate-500">{factory}</p>
-            <p className="text-[11px] font-mono text-slate-400 mt-1.5 break-all">{directUrl}</p>
+            <p className="text-sm font-extrabold text-slate-900 mt-3">
+              Master Group Centralized Kaizen QR
+            </p>
+            <p className="text-xs text-slate-600 mt-1 max-w-md leading-relaxed">
+              Scanning opens the unified Kaizen form where employees select Location (Karachi, Lahore, Mirpur), Factory (Master Lifestyle / Master Molty Foam), and their Section.
+            </p>
+            <p className="text-[11px] font-mono text-slate-500 mt-2 break-all">{directUrl}</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              onClick={handleSingleDownload}
-              disabled={isDownloadingSingle}
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
               className="flex-1 px-4 py-3 bg-slate-900 hover:bg-blue-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               <FileDown className="w-4 h-4" />
-              <span>{isDownloadingSingle ? 'Creating PDF...' : `Download ${department} PDF`}</span>
+              <span>{isDownloading ? 'Generating PDF...' : 'Download Centralized QR Poster (PDF)'}</span>
             </button>
 
             <button
               type="button"
-              onClick={handleBatchDownload}
-              disabled={isDownloadingBatch}
-              className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              onClick={handleCopy}
+              className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
             >
-              <Layers className="w-4 h-4" />
-              <span>{isDownloadingBatch ? 'Generating All...' : `All ${units.length} Units (PDF)`}</span>
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied' : 'Copy Link'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTestForm}
+              className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Test Form</span>
             </button>
           </div>
         </div>

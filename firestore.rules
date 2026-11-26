@@ -10,9 +10,45 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isValidRating(val) {
+      return val is number && val >= 1 && val <= 3;
+    }
+
+    function isValidEvaluation(ev) {
+      return ev is map &&
+             ev.keys().hasAll(['scores', 'aggregateScore', 'percentage']) &&
+             ev.scores is map &&
+             ev.scores.keys().hasAll([
+               'problemIdentification',
+               'rootCauseAnalysis',
+               'creativityInnovation',
+               'impactOnResults',
+               'sustainability',
+               'employeeInvolvement',
+               'abilityToYokoten'
+             ]) &&
+             isValidRating(ev.scores.problemIdentification) &&
+             isValidRating(ev.scores.rootCauseAnalysis) &&
+             isValidRating(ev.scores.creativityInnovation) &&
+             isValidRating(ev.scores.impactOnResults) &&
+             isValidRating(ev.scores.sustainability) &&
+             isValidRating(ev.scores.employeeInvolvement) &&
+             isValidRating(ev.scores.abilityToYokoten) &&
+             ev.aggregateScore is number && ev.aggregateScore >= 1 && ev.aggregateScore <= 3 &&
+             ev.percentage is number && ev.percentage >= 0 && ev.percentage <= 100 &&
+             (!('evaluatedAt' in ev) || (ev.evaluatedAt is string && ev.evaluatedAt.size() <= 40));
+    }
+
     function isValidKaizen(data) {
       return data.keys().hasAll(['department', 'initiator', 'submissionDate', 'type', 'status', 'problem', 'solution', 'month']) &&
-             (!('factory' in data) || data.factory in ['Karachi Furniture Factory', 'Karachi Molty Foam Port Qasim']) &&
+             (!('location' in data) || data.location in ['Karachi', 'Lahore', 'Mirpur']) &&
+             (!('factory' in data) || data.factory in [
+               'Master Lifestyle Pvt. Ltd.',
+               'Master Molty Foam',
+               'Karachi Furniture Factory',
+               'Karachi Molty Foam Port Qasim'
+             ]) &&
+             (!('location' in data) || data.location != 'Mirpur' || data.factory == 'Master Molty Foam') &&
              data.department is string && data.department.size() <= 100 &&
              data.initiator is string && data.initiator.size() <= 100 &&
              data.submissionDate is string && data.submissionDate.size() <= 40 &&
@@ -25,12 +61,13 @@ service cloud.firestore {
              (!('beforeImg' in data) || (data.beforeImg is string && data.beforeImg.size() <= 900000)) &&
              (!('afterImg' in data) || (data.afterImg is string && data.afterImg.size() <= 900000)) &&
              (!('reward' in data) || (data.reward is number && data.reward >= 0)) &&
+             (!('evaluation' in data) || isValidEvaluation(data.evaluation)) &&
              data.type in ['Idea', 'Implemented'] &&
              data.status in ['Pending', 'Accepted', 'Rejected'];
     }
 
     match /kaizens/{kaizenId} {
-      // Departmental portal uses department/factory credentials in-app; strict schema & size validation enforced here
+      // Departmental and Centralized QR portals use facility/section credentials in-app; strict schema & size validation enforced here
       allow read: if true;
       allow create: if isValidId(kaizenId) && isValidKaizen(request.resource.data);
       allow update: if isValidId(kaizenId) && isValidKaizen(request.resource.data);

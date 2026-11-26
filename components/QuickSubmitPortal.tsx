@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { CheckCircle2, PlusCircle, LogIn } from 'lucide-react';
-import { Factory, Kaizen } from '../types';
+import { Factory, Kaizen, Location } from '../types';
 import KaizenForm from './KaizenForm';
 
 interface QuickSubmitPortalProps {
-  factory: Factory;
-  department: string;
+  initialLocation?: Location;
+  initialFactory?: Factory;
+  initialDepartment?: string;
   onSubmit: (kaizen: Kaizen) => Promise<void>;
   onGoToLogin: () => void;
 }
 
 const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
-  factory,
-  department,
+  initialLocation,
+  initialFactory,
+  initialDepartment,
   onSubmit,
   onGoToLogin
 }) => {
@@ -26,7 +28,7 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
 
   const handleReset = () => {
     setSubmittedKaizen(null);
-    setFormKey(prev => prev + 1);
+    setFormKey((prev) => prev + 1);
   };
 
   return (
@@ -52,7 +54,7 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
               Master Kaizen Management System
             </h1>
             <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-              {factory} <span aria-hidden="true">·</span> <span className="font-semibold text-blue-700">{department}</span>
+              Pakistan Centralized Portal <span aria-hidden="true">·</span> Karachi · Lahore · Mirpur
             </p>
           </div>
         </div>
@@ -79,20 +81,24 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
                 Kaizen Registered Successfully
               </h2>
               <p className="text-xs text-slate-500 mt-1.5">
-                Your submission has been synced to the cloud for Lean review.
+                Your submission is parked under your Section & Management Pending Queue for review.
               </p>
 
               <div className="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-5 text-left space-y-2.5 text-xs">
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Reference ID</span>
-                  <span className="font-mono font-bold text-slate-900">{submittedKaizen.id}</span>
+                  <span className="text-slate-500">Kaizen ID</span>
+                  <span className="font-mono font-bold text-blue-700">{submittedKaizen.id}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">Location</span>
+                  <span className="font-bold text-slate-900">{submittedKaizen.location}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-500">Factory</span>
                   <span className="font-bold text-slate-900">{submittedKaizen.factory}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Department / Section</span>
+                  <span className="text-slate-500">Section</span>
                   <span className="font-bold text-blue-700">{submittedKaizen.department}</span>
                 </div>
                 <div className="flex justify-between gap-4">
@@ -127,8 +133,10 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
           ) : (
             <KaizenForm
               key={formKey}
-              factory={factory}
-              department={department}
+              location={initialLocation}
+              factory={initialFactory}
+              department={initialDepartment}
+              allowFacilitySelection={true}
               onSubmit={handleQuickSubmit}
             />
           )}
@@ -136,7 +144,7 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-3 px-6 text-center text-xs text-slate-500">
-        Master Furnishings Pvt. Ltd. · Lean & Transformation Direct QR Submission
+        Master Group of Industries · Centralized Pakistan Kaizen Portal (Karachi · Lahore · Mirpur)
       </footer>
     </div>
   );

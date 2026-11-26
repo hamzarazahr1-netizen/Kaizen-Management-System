@@ -3,8 +3,10 @@ import { jsPDF } from 'jspdf';
 import {
   Factory,
   FACTORIES,
+  Location,
+  LOCATIONS,
   getDepartmentsForFactory,
-  getShortFactoryName
+  getFactoriesForLocation
 } from '../types';
 
 const QR_BASE_URL_STORAGE_KEY = 'mf_kaizen_qr_base_url';
@@ -17,7 +19,7 @@ const toSlug = (val: string): string =>
     .replace(/^-+|-+$/g, '');
 
 export function getFactoryCode(factory: Factory): string {
-  return factory === Factory.MOLTY_FOAM ? 'mf' : 'ff';
+  return factory === Factory.MASTER_MOLTY_FOAM ? 'mf' : 'ls';
 }
 
 export function getDefaultPortalBaseUrl(): string {
@@ -59,18 +61,33 @@ export function resetPortalBaseUrl(): string {
   return getDefaultPortalBaseUrl();
 }
 
+export function buildCentralizedQuickSubmitUrl(customBaseUrl?: string): string {
+  const base = (customBaseUrl || getDefaultPortalBaseUrl()).trim().replace(/\/+$/, '');
+  return `${base}/?q=1`;
+}
+
 export function buildQuickSubmitUrl(
-  factory: Factory,
-  department: string,
+  factory?: Factory,
+  department?: string,
   customBaseUrl?: string
 ): string {
   const base = (customBaseUrl || getDefaultPortalBaseUrl()).trim().replace(/\/+$/, '');
+  if (!factory || !department) {
+    return `${base}/?q=1`;
+  }
   const fCode = getFactoryCode(factory);
   const dSlug = toSlug(department);
   return `${base}/?q=1&f=${fCode}&d=${dSlug}`;
 }
 
-export function parseQuickSubmitFromUrl(): { factory: Factory; department: string } | null {
+export interface ParsedQuickSubmitTarget {
+  isQuickSubmit: boolean;
+  location?: Location;
+  factory?: Factory;
+  department?: string;
+}
+
+export function parseQuickSubmitFromUrl(): ParsedQuickSubmitTarget | null {
   let searchStr = window.location.search;
   if (!searchStr && window.location.hash.includes('?')) {
     searchStr = window.location.hash.slice(window.location.hash.indexOf('?'));
@@ -82,30 +99,52 @@ export function parseQuickSubmitFromUrl(): { factory: Factory; department: strin
 
   if (!isCompactMode && !isLegacyMode) return null;
 
+  const rawLoc = (params.get('l') || params.get('location') || '').trim().toLowerCase();
   const rawFactory = (params.get('f') || params.get('factory') || '').trim().toLowerCase();
   const rawDept = (params.get('d') || params.get('dept') || '').trim().toLowerCase();
 
-  let matchedFactory: Factory | undefined;
-  if (rawFactory === 'ff' || rawFactory === 'furniture') {
-    matchedFactory = Factory.FURNITURE;
-  } else if (rawFactory === 'mf' || rawFactory === 'molty' || rawFactory === 'molty-foam') {
-    matchedFactory = Factory.MOLTY_FOAM;
-  } else {
-    matchedFactory = FACTORIES.find(
-      f => f.toLowerCase() === rawFactory || toSlug(f) === rawFactory
-    );
+  let matchedLocation: Location | undefined;
+  if (rawLoc) {
+    if (rawLoc === 'k' || rawLoc === 'khi' || rawLoc === 'karachi') matchedLocation = Location.KARACHI;
+    else if (rawLoc === 'l' || rawLoc === 'lhr' || rawLoc === 'lahore') matchedLocation = Location.LAHORE;
+    else if (rawLoc === 'm' || rawLoc === 'mpr' || rawLoc === 'mirpur') matchedLocation = Location.MIRPUR;
+    else {
+      matchedLocation = LOCATIONS.find((l) => l.toLowerCase() === rawLoc);
+    }
   }
 
-  if (!matchedFactory) return null;
+  let matchedFactory: Factory | undefined;
+  if (rawFactory) {
+    if (rawFactory === 'ff' || rawFactory === 'ls' || rawFactory === 'furniture' || rawFactory === 'lifestyle') {
+      matchedFactory = Factory.MASTER_LIFESTYLE;
+    } else if (rawFactory === 'mf' || rawFactory === 'molty' || rawFactory === 'molty-foam') {
+      matchedFactory = Factory.MASTER_MOLTY_FOAM;
+    } else {
+      matchedFactory = FACTORIES.find(
+        (f) => f.toLowerCase() === rawFactory || toSlug(f) === rawFactory
+      );
+    }
+  }
 
-  const units = getDepartmentsForFactory(matchedFactory);
-  const matchedDept = units.find(
-    u => u.toLowerCase() === rawDept || toSlug(u) === rawDept
-  );
+  if (matchedLocation && matchedFactory) {
+    const allowed = getFactoriesForLocation(matchedLocation);
+    if (!allowed.includes(matchedFactory)) {
+      matchedFactory = allowed[0];
+    }
+  }
 
-  if (!matchedDept) return null;
+  let matchedDept: string | undefined;
+  if (matchedFactory && rawDept) {
+    const units = getDepartmentsForFactory(matchedFactory);
+    matchedDept = units.find((u) => u.toLowerCase() === rawDept || toSlug(u) === rawDept);
+  }
 
-  return { factory: matchedFactory, department: matchedDept };
+  return {
+    isQuickSubmit: true,
+    location: matchedLocation,
+    factory: matchedFactory,
+    department: matchedDept
+  };
 }
 
 export async function generateQrDataUrl(url: string, width = 512): Promise<string> {
@@ -120,14 +159,14 @@ export async function generateQrDataUrl(url: string, width = 512): Promise<strin
   });
 }
 
-interface LoadedImage {
+export interface LoadedImage {
   dataUrl: string;
   width: number;
   height: number;
   format: 'JPEG' | 'PNG';
 }
 
-function loadImageAsDataUrl(
+export function loadImageAsDataUrl(
   src: string,
   format: 'JPEG' | 'PNG',
   bgHex = '#f4f5f6'
@@ -166,7 +205,7 @@ function loadImageAsDataUrl(
   });
 }
 
-async function loadBothLogos(): Promise<{
+export async function loadBothLogos(): Promise<{
   furnishings: LoadedImage | null;
   molty: LoadedImage | null;
 }> {
@@ -227,7 +266,6 @@ function renderTopUrduBanner(): string {
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  // Rich navy banner with Master royal-blue accent border
   ctx.fillStyle = '#0f172a';
   ctx.fillRect(0, 0, w, h);
 
@@ -238,7 +276,6 @@ function renderTopUrduBanner(): string {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Prominent Nastaliq Urdu headline
   ctx.font = `700 62px ${URDU_NASTALIQ_FONT_STACK}`;
   ctx.fillStyle = '#ffffff';
   ctx.fillText('آپ کی ایک اچھی تجویز، بہتری کی ایک نئی راہ!', w / 2, 118, w - 90);
@@ -254,7 +291,6 @@ function renderBottomUrduCallout(): string {
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  // Clean high-contrast light card with strong border & emerald/blue accent
   ctx.fillStyle = '#f8fafc';
   ctx.fillRect(0, 0, w, h);
 
@@ -262,7 +298,6 @@ function renderBottomUrduCallout(): string {
   ctx.lineWidth = 10;
   ctx.strokeRect(5, 5, w - 10, h - 10);
 
-  // Top emerald accent bar
   ctx.fillStyle = '#059669';
   ctx.fillRect(5, 5, w - 10, 18);
 
@@ -297,7 +332,6 @@ function renderBottomUrduCallout(): string {
     ctx.stroke();
   };
 
-  // 1. Primary Action Line just below the QR Code (Extra-Large & Bold for Shop-Floor Visibility)
   const primaryText = 'اپنا کائزن آئیڈیا جمع کروانے کے لیے کیو آر کوڈ اسکین کریں!';
   let primaryFontSize = 66;
   ctx.font = `700 ${primaryFontSize}px ${URDU_NASTALIQ_FONT_STACK}`;
@@ -307,10 +341,8 @@ function renderBottomUrduCallout(): string {
   }
 
   let nextY = drawBlock(primaryText, primaryFontSize, '#0f172a', 110, 102);
-
   drawDivider(nextY - 8);
 
-  // 2. Team Appreciation Line (exact requested Urdu text)
   nextY = drawBlock(
     'آپ ہمارے لیے اہم ہیں، آپ کی آواز سنی جاتی ہے اور آپ کے خیالات کی قدر کی جاتی ہے',
     50,
@@ -318,10 +350,8 @@ function renderBottomUrduCallout(): string {
     nextY + 66,
     96
   );
-
   drawDivider(nextY - 8);
 
-  // 3. Motivational Closing Line
   nextY = drawBlock(
     'بہتری کا آغاز آپ سے ہوتا ہے، آج ہی اپنا آئیڈیا شیئر کریں!',
     52,
@@ -330,7 +360,6 @@ function renderBottomUrduCallout(): string {
     94
   );
 
-  // High-contrast bottom English action bar
   const barY = Math.max(665, Math.min(738, nextY + 34));
   ctx.fillStyle = '#059669';
   ctx.fillRect(140, barY, w - 280, 94);
@@ -343,25 +372,21 @@ function renderBottomUrduCallout(): string {
   return canvas.toDataURL('image/png');
 }
 
-async function renderPosterPage(
-  pdf: jsPDF,
-  factory: Factory,
-  department: string,
-  logos: { furnishings: LoadedImage | null; molty: LoadedImage | null },
-  topBannerUrl: string,
-  bottomCalloutUrl: string,
-  customBaseUrl?: string
-): Promise<void> {
+export async function downloadCentralizedQrPdf(customBaseUrl?: string): Promise<void> {
+  await ensureUrduFontsLoaded();
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const logos = await loadBothLogos();
+  const topBannerUrl = renderTopUrduBanner();
+  const bottomCalloutUrl = renderBottomUrduCallout();
+
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const centerX = pageWidth / 2;
 
-  // Clean outer border
   pdf.setDrawColor(203, 213, 225);
   pdf.setLineWidth(0.7);
   pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
 
-  // Header brand band with both logos
   pdf.setFillColor(244, 245, 246);
   pdf.rect(10.5, 10.5, pageWidth - 21, 32, 'F');
 
@@ -390,30 +415,24 @@ async function renderPosterPage(
     pdf.addImage(molty.dataUrl, 'PNG', centerX - mW / 2, 15.5, mW, mH);
   }
 
-  // Company & Factory Identification
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(11);
   pdf.setTextColor(71, 85, 105);
-  const companyLabel =
-    factory === Factory.FURNITURE ? 'MASTER LIFESTYLE PVT. LTD.' : 'MASTER MOLTY FOAM';
-  pdf.text(companyLabel, centerX, 49.5, { align: 'center' });
+  pdf.text('MASTER GROUP OF INDUSTRIES · PAKISTAN', centerX, 49.5, { align: 'center' });
 
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(12);
+  pdf.setFontSize(11);
   pdf.setTextColor(29, 78, 216);
-  pdf.text(factory.toUpperCase(), centerX, 55.5, { align: 'center' });
+  pdf.text('KARACHI  ·  LAHORE  ·  MIRPUR', centerX, 55.5, { align: 'center' });
 
-  // Department / Section Title (large, clear for shop floor)
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(26);
+  pdf.setFontSize(22);
   pdf.setTextColor(15, 23, 42);
-  pdf.text(department.toUpperCase(), centerX, 67, { align: 'center' });
+  pdf.text('CENTRALIZED KAIZEN PORTAL', centerX, 66.5, { align: 'center' });
 
-  // Top Eye-Catching Urdu Hook Banner (Nastaliq)
   pdf.addImage(topBannerUrl, 'PNG', 12, 72, pageWidth - 24, 24);
 
-  // Large High-Contrast QR Code
-  const targetUrl = buildQuickSubmitUrl(factory, department, customBaseUrl);
+  const targetUrl = buildCentralizedQuickSubmitUrl(customBaseUrl);
   const qrDataUrl = await generateQrDataUrl(targetUrl, 720);
   const qrSize = 84;
   const qrX = centerX - qrSize / 2;
@@ -424,44 +443,7 @@ async function renderPosterPage(
   pdf.rect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
   pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-  // Bottom Large Urdu Action & Shop-Floor Value Callout Box (Nastaliq)
   pdf.addImage(bottomCalloutUrl, 'PNG', 12, 196, pageWidth - 24, 86);
-}
 
-export async function downloadDepartmentQrPdf(
-  factory: Factory,
-  department: string,
-  customBaseUrl?: string
-): Promise<void> {
-  await ensureUrduFontsLoaded();
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const logos = await loadBothLogos();
-  const topBannerUrl = renderTopUrduBanner();
-  const bottomCalloutUrl = renderBottomUrduCallout();
-
-  await renderPosterPage(pdf, factory, department, logos, topBannerUrl, bottomCalloutUrl, customBaseUrl);
-
-  const safeFactory = getShortFactoryName(factory).replace(/\s+/g, '_');
-  const safeDept = department.replace(/\s+/g, '_');
-  pdf.save(`Kaizen_QR_${safeFactory}_${safeDept}.pdf`);
-}
-
-export async function downloadAllFactoryQrPdf(
-  factory: Factory,
-  customBaseUrl?: string
-): Promise<void> {
-  await ensureUrduFontsLoaded();
-  const units = getDepartmentsForFactory(factory);
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const logos = await loadBothLogos();
-  const topBannerUrl = renderTopUrduBanner();
-  const bottomCalloutUrl = renderBottomUrduCallout();
-
-  for (let i = 0; i < units.length; i++) {
-    if (i > 0) pdf.addPage();
-    await renderPosterPage(pdf, factory, units[i], logos, topBannerUrl, bottomCalloutUrl, customBaseUrl);
-  }
-
-  const safeFactory = getShortFactoryName(factory).replace(/\s+/g, '_');
-  pdf.save(`Kaizen_QR_Posters_${safeFactory}.pdf`);
+  pdf.save('Master_Pakistan_Centralized_Kaizen_QR.pdf');
 }
