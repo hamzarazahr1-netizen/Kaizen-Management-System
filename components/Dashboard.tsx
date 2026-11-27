@@ -37,6 +37,7 @@ import {
 import { QrCode, ArrowRight, Trophy } from 'lucide-react';
 import DepartmentQrCard from './DepartmentQrCard';
 import QrPosterModal from './QrPosterModal';
+import TrademarkStamp from './TrademarkStamp';
 
 interface DashboardProps {
   user: User;
@@ -932,6 +933,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
       {showQrModal && user.role === 'ADMIN' && (
         <QrPosterModal onClose={() => setShowQrModal(false)} />
       )}
+
+      <div className="pt-2">
+        <TrademarkStamp />
+      </div>
     </div>
   );
 };

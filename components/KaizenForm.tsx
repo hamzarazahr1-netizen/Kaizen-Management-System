@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { db } from '../firebase';
 import { buildKaizenIdPrefix, generateNextKaizenId } from '../utils/kaizenScoring';
+import TrademarkStamp from './TrademarkStamp';
 
 interface KaizenFormProps {
   location?: Location;
@@ -481,6 +482,10 @@ const KaizenForm: React.FC<KaizenFormProps> = ({
             'Submit Kaizen Proposal'
           )}
         </button>
+
+        <div className="pt-2 border-t border-slate-100">
+          <TrademarkStamp />
+        </div>
       </form>
     </div>
   );

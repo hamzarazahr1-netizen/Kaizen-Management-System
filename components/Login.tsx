@@ -9,6 +9,7 @@ import {
   FACTORY_DEPARTMENTS,
   MOLTY_FOAM_DEPARTMENTS
 } from '../types';
+import TrademarkStamp from './TrademarkStamp';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -530,12 +531,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <ChevronRight className="w-4 h-4" />
             </button>
 
-            <div className="pt-4 border-t border-slate-100 text-center">
+            <div className="pt-4 border-t border-slate-100 text-center space-y-1.5">
               <p className="text-[11px] text-slate-500">
                 {loginMode === 'ADMIN'
                   ? 'Super Admin ID: admin · Location Admins: karachiadmin / lahoreadmin / mirpuradmin'
                   : 'Authorized Personnel Only · Select Location, Factory & Section (Pass: 123)'}
               </p>
+              <TrademarkStamp />
             </div>
           </form>
         </div>

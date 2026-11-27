@@ -440,7 +440,7 @@ const AppContent: React.FC = () => {
             © 2026 Master Group of Industries <span aria-hidden="true">·</span> Kaizen Management System (Karachi · Lahore · Mirpur){' '}
             {isSyncing ? '· Syncing...' : ''}
           </p>
-          <p className="font-semibold text-slate-400">Developed by Hamza Raza</p>
+          <p className="font-medium text-slate-400/75 select-none">™ Developed by Hamza Raza -AM Opex</p>
         </div>
       </footer>
     </div>

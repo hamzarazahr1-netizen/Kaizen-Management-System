@@ -41,6 +41,7 @@ import {
   Cell
 } from 'recharts';
 import { Download, FileSpreadsheet, FileDown, Trophy, Building2 } from 'lucide-react';
+import TrademarkStamp from './TrademarkStamp';
 
 interface AdminGlobalAnalyticsProps {
   user: User;
@@ -920,6 +921,10 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ user, kaize
             </tfoot>
           </table>
         </div>
+      </div>
+
+      <div className="pt-2">
+        <TrademarkStamp />
       </div>
     </div>
   );

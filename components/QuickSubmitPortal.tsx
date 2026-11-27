@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, PlusCircle, LogIn } from 'lucide-react';
 import { Factory, Kaizen, Location } from '../types';
 import KaizenForm from './KaizenForm';
+import TrademarkStamp from './TrademarkStamp';
 
 interface QuickSubmitPortalProps {
   initialLocation?: Location;
@@ -143,8 +144,9 @@ const QuickSubmitPortal: React.FC<QuickSubmitPortalProps> = ({
         </div>
       </main>
 
-      <footer className="bg-white border-t border-slate-200 py-3 px-6 text-center text-xs text-slate-500">
-        Master Group of Industries · Centralized Pakistan Kaizen Portal (Karachi · Lahore · Mirpur)
+      <footer className="bg-white border-t border-slate-200 py-3 px-6 text-center text-xs text-slate-500 space-y-1">
+        <p>Master Group of Industries · Centralized Pakistan Kaizen Portal (Karachi · Lahore · Mirpur)</p>
+        <TrademarkStamp />
       </footer>
     </div>
   );

@@ -40,6 +40,7 @@ import {
   Trash2,
   Save
 } from 'lucide-react';
+import TrademarkStamp from './TrademarkStamp';
 
 interface AdminEditDraft {
   location: Location;
@@ -1279,6 +1280,10 @@ const Records: React.FC<RecordsProps> = ({ user, kaizens, onUpdate }) => {
           </div>
         </div>
       )}
+
+      <div className="pt-2">
+        <TrademarkStamp />
+      </div>
     </div>
   );
 };
