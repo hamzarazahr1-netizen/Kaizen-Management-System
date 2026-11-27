@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  User,
   Kaizen,
   KaizenStatus,
   KaizenType,
@@ -10,7 +11,9 @@ import {
   ALL_FACILITIES,
   getFactoriesForLocation,
   getDepartmentsForFactory,
-  getShortFactoryName
+  getShortFactoryName,
+  isSuperAdmin,
+  isLocationAdmin
 } from '../types';
 import {
   EVALUATION_CRITERIA,
@@ -40,6 +43,7 @@ import {
 import { Download, FileSpreadsheet, FileDown, Trophy, Building2 } from 'lucide-react';
 
 interface AdminGlobalAnalyticsProps {
+  user: User;
   kaizens: Kaizen[];
 }
 
@@ -63,10 +67,14 @@ interface AnalyticsRow {
 
 const OUTCOME_COLORS = ['#059669', '#2563eb', '#d97706', '#dc2626'];
 
-const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) => {
+const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ user, kaizens }) => {
+  const userIsSuperAdmin = isSuperAdmin(user);
+  const userIsLocationAdmin = isLocationAdmin(user);
   const rankedKaizens = useMemo(() => enrichKaizensWithRankings(kaizens), [kaizens]);
 
-  const [selectedLocation, setSelectedLocation] = useState<'All' | Location>('All');
+  const [selectedLocation, setSelectedLocation] = useState<'All' | Location>(
+    userIsSuperAdmin ? 'All' : (user.location as Location)
+  );
   const [selectedFactory, setSelectedFactory] = useState<'All' | Factory>('All');
   const [selectedDept, setSelectedDept] = useState<string>('All');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
@@ -300,7 +308,8 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) 
         filteredRankedKaizens,
         rankedKaizens,
         selectedMonth,
-        'Master_Group_Global_Analytics'
+        userIsLocationAdmin ? `Master_${user.location}_Analytics` : 'Master_Group_Global_Analytics',
+        userIsLocationAdmin ? (user.location as Location) : 'ALL'
       );
     } finally {
       setIsExportingExcel(false);
@@ -311,7 +320,10 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) 
     if (filteredRankedKaizens.length === 0) return;
     setIsExportingPdf(true);
     try {
-      await downloadPictorialKaizenBookletPdf(filteredRankedKaizens, 'Master_Group_Kaizen_Booklet');
+      await downloadPictorialKaizenBookletPdf(
+        filteredRankedKaizens,
+        userIsLocationAdmin ? `Master_${user.location}_Kaizen_Booklet` : 'Master_Group_Kaizen_Booklet'
+      );
     } finally {
       setIsExportingPdf(false);
     }
@@ -324,32 +336,46 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) 
         <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-4">
           <div>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Global Analytics & Segregated Finance Summary
+              {userIsLocationAdmin
+                ? `${user.location} Factory Analytics & Segregated Finance Summary`
+                : 'Global Analytics & Segregated Finance Summary'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {selectedLocation === 'All' ? 'All Pakistan (Karachi · Lahore · Mirpur)' : selectedLocation} ·{' '}
-              {selectedFactory === 'All' ? 'All Factories' : selectedFactory}
+              {selectedLocation === 'All' ? 'All Pakistan (Karachi · Lahore · Mirpur)' : `${selectedLocation} Scope`} ·{' '}
+              {selectedFactory === 'All'
+                ? userIsLocationAdmin
+                  ? `All ${user.location} Factories`
+                  : 'All Factories'
+                : selectedFactory}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <select
-              value={selectedLocation}
-              onChange={(e) => handleLocationChange(e.target.value as 'All' | Location)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
-            >
-              <option value="All">All Locations (3)</option>
-              {LOCATIONS.map((loc) => (
-                <option key={loc} value={loc}>{loc}</option>
-              ))}
-            </select>
+            {userIsSuperAdmin ? (
+              <select
+                value={selectedLocation}
+                onChange={(e) => handleLocationChange(e.target.value as 'All' | Location)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
+              >
+                <option value="All">All Locations (3)</option>
+                {LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="px-3 py-2 border border-blue-200 rounded-lg text-xs font-bold bg-blue-50 text-blue-800">
+                {user.location} Only
+              </span>
+            )}
 
             <select
               value={selectedFactory}
               onChange={(e) => handleFactoryChange(e.target.value as 'All' | Factory)}
               className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
             >
-              <option value="All">All Factories</option>
+              <option value="All">
+                {userIsLocationAdmin ? `All ${user.location} Factories` : 'All Factories'}
+              </option>
               {availableFactories.map((f) => (
                 <option key={f} value={f}>{f}</option>
               ))}
@@ -407,7 +433,14 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) 
 
             <button
               type="button"
-              onClick={() => exportFinanceSummaryCsv(rankedKaizens, selectedMonth)}
+              onClick={() =>
+                exportFinanceSummaryCsv(
+                  rankedKaizens,
+                  selectedMonth,
+                  userIsLocationAdmin ? `Master_${user.location}_Finance_Summary` : 'Master_Finance_Reward_Summary',
+                  userIsLocationAdmin ? (user.location as Location) : 'ALL'
+                )
+              }
               className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
@@ -416,7 +449,12 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) 
 
             <button
               type="button"
-              onClick={() => exportRecordsCsv(filteredRankedKaizens)}
+              onClick={() =>
+                exportRecordsCsv(
+                  filteredRankedKaizens,
+                  userIsLocationAdmin ? `Master_${user.location}_Kaizen_Records` : 'Master_Kaizen_Records'
+                )
+              }
               disabled={filteredRankedKaizens.length === 0}
               className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
             >
@@ -601,7 +639,11 @@ const AdminGlobalAnalytics: React.FC<AdminGlobalAnalyticsProps> = ({ kaizens }) 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-            <h3 className="text-sm font-extrabold text-slate-900">All-Pakistan Facility Performance Comparison</h3>
+            <h3 className="text-sm font-extrabold text-slate-900">
+              {userIsLocationAdmin
+                ? `${user.location} Facility Performance Comparison`
+                : 'All-Pakistan Facility Performance Comparison'}
+            </h3>
             <span className="text-xs text-slate-500">Synced with Filters</span>
           </div>
           <div className="h-72">

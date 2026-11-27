@@ -3,6 +3,7 @@ import {
   ALL_FACILITIES,
   KaizenStatus,
   KaizenType,
+  Location,
   RankedKaizen,
   getDepartmentsForFactory
 } from '../types';
@@ -64,7 +65,8 @@ export async function exportKaizensWithPicturesExcel(
   filteredKaizens: RankedKaizen[],
   allRankedKaizens: RankedKaizen[],
   monthFilter: string = 'All',
-  filenamePrefix = 'Master_Group_Kaizen_Report'
+  filenamePrefix = 'Master_Group_Kaizen_Report',
+  scopedLocation: Location | 'ALL' = 'ALL'
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Master Group Kaizen Management System';
@@ -205,8 +207,11 @@ export async function exportKaizensWithPicturesExcel(
     { width: 20 }
   ];
 
-  const summaries = computeFacilityFinanceSummaries(allRankedKaizens, monthFilter);
-  const titleRow = wsFinance.addRow([`MASTER GROUP OF INDUSTRIES · SEGREGATED FINANCE REWARD SUMMARY (${monthFilter === 'All' ? 'All Months' : monthFilter})`]);
+  const summaries = computeFacilityFinanceSummaries(allRankedKaizens, monthFilter).filter(
+    (s) => scopedLocation === 'ALL' || s.location === scopedLocation
+  );
+  const scopeLabel = scopedLocation === 'ALL' ? 'MASTER GROUP OF INDUSTRIES' : `MASTER GROUP (${scopedLocation.toUpperCase()})`;
+  const titleRow = wsFinance.addRow([`${scopeLabel} · SEGREGATED FINANCE REWARD SUMMARY (${monthFilter === 'All' ? 'All Months' : monthFilter})`]);
   titleRow.font = { bold: true, size: 12, color: { argb: 'FF0F172A' } };
   wsFinance.addRow([]);
 
@@ -349,7 +354,7 @@ export async function exportKaizensWithPicturesExcel(
     c.alignment = { horizontal: 'center', vertical: 'middle' };
   });
 
-  ALL_FACILITIES.forEach((fac) => {
+  ALL_FACILITIES.filter((fac) => scopedLocation === 'ALL' || fac.location === scopedLocation).forEach((fac) => {
     const units = getDepartmentsForFactory(fac.factory);
     units.forEach((dept) => {
       const list = allRankedKaizens.filter(
@@ -423,9 +428,12 @@ export function exportRecordsCsv(kaizens: RankedKaizen[], filenamePrefix = 'Mast
 export function exportFinanceSummaryCsv(
   allRankedKaizens: RankedKaizen[],
   monthFilter: string = 'All',
-  filenamePrefix = 'Master_Finance_Reward_Summary'
+  filenamePrefix = 'Master_Finance_Reward_Summary',
+  scopedLocation: Location | 'ALL' = 'ALL'
 ): void {
-  const summaries = computeFacilityFinanceSummaries(allRankedKaizens, monthFilter);
+  const summaries = computeFacilityFinanceSummaries(allRankedKaizens, monthFilter).filter(
+    (s) => scopedLocation === 'ALL' || s.location === scopedLocation
+  );
   const headers = [
     'Location', 'Factory', 'Total Submitted', 'Acc. Ideas', 'Acc. Implemented',
     'Ideas Pool (PKR)', 'Implemented Pool (PKR)', 'Base Pool Total (PKR)',

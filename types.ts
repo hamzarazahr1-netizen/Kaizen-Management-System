@@ -151,6 +151,12 @@ export interface User {
   factory: Factory | 'ALL';
 }
 
+export const isSuperAdmin = (user: User): boolean =>
+  user.role === 'ADMIN' && user.location === 'ALL';
+
+export const isLocationAdmin = (user: User): boolean =>
+  user.role === 'ADMIN' && user.location !== 'ALL';
+
 export const FURNITURE_DEPARTMENTS = [
   'Chair', 'Furniture', 'CHF', 'Polish', 'RM Store', 'Chair Store', 'FG Store',
   'Weldshop', 'Logistic', 'Maintenance', 'HSE', 'Admin', 'PPMC', 'Quality', 'Lean', 'Department'

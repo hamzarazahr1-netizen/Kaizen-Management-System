@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   collection,
   query,
@@ -8,11 +8,21 @@ import {
   doc,
   orderBy,
   serverTimestamp,
-  setDoc
+  setDoc,
+  deleteField
 } from 'firebase/firestore';
 import { LogOut, LayoutDashboard, PlusCircle, FileText, BarChart3 } from 'lucide-react';
 import { db } from './firebase';
-import { User, Kaizen, normalizeKaizenRecord } from './types';
+import {
+  User,
+  Kaizen,
+  KaizenStatus,
+  Location,
+  LOCATION_FACTORIES,
+  isSuperAdmin,
+  isLocationAdmin,
+  normalizeKaizenRecord
+} from './types';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import KaizenForm from './components/KaizenForm';
@@ -189,6 +199,7 @@ const AppContent: React.FC = () => {
 
       const cleanPayload = stripUndefined({
         ...pureKaizen,
+        ...(pureKaizen.status === KaizenStatus.REJECTED ? { evaluation: deleteField() } : {}),
         updatedAt: serverTimestamp()
       });
 
@@ -215,6 +226,14 @@ const AppContent: React.FC = () => {
 
   const handleLogout = () => setCurrentUser(null);
 
+  const scopedKaizens = useMemo(() => {
+    if (!currentUser) return [];
+    if (isLocationAdmin(currentUser)) {
+      return kaizens.filter((k) => k.location === currentUser.location);
+    }
+    return kaizens;
+  }, [kaizens, currentUser]);
+
   if (!currentUser && qrTarget?.isQuickSubmit) {
     return (
       <QuickSubmitPortal
@@ -230,6 +249,13 @@ const AppContent: React.FC = () => {
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
+
+  const userIsSuperAdmin = isSuperAdmin(currentUser);
+  const userIsLocationAdmin = isLocationAdmin(currentUser);
+  const locationFactoriesLabel =
+    userIsLocationAdmin && currentUser.location !== 'ALL'
+      ? LOCATION_FACTORIES[currentUser.location as Location].join(' & ')
+      : '';
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
@@ -252,12 +278,18 @@ const AppContent: React.FC = () => {
           </div>
           <div className="hidden sm:block border-l border-slate-200 pl-4 min-w-0">
             <h1 className="text-sm font-extrabold text-slate-900 tracking-tight truncate">
-              {currentUser.role === 'ADMIN' ? 'Kaizen Committee · Management Portal' : 'Master Kaizen Management System'}
+              {userIsSuperAdmin
+                ? 'Kaizen Committee · Super Admin Portal'
+                : userIsLocationAdmin
+                  ? `${currentUser.location} Factory Admin Portal`
+                  : 'Master Kaizen Management System'}
             </h1>
             <p className="text-xs text-slate-500 truncate">
-              {currentUser.role === 'ADMIN'
+              {userIsSuperAdmin
                 ? 'Master Lifestyle & Master Molty Foam · Karachi, Lahore & Mirpur'
-                : `${currentUser.location} · ${currentUser.factory} · ${currentUser.department}`}
+                : userIsLocationAdmin
+                  ? `${currentUser.location} · ${locationFactoriesLabel}`
+                  : `${currentUser.location} · ${currentUser.factory} · ${currentUser.department}`}
             </p>
           </div>
         </div>
@@ -320,9 +352,11 @@ const AppContent: React.FC = () => {
           <div className="text-right hidden xl:block">
             <p className="text-xs font-bold text-slate-900">{currentUser.department}</p>
             <p className="text-[11px] text-slate-500">
-              {currentUser.role === 'ADMIN'
-                ? 'All Pakistan Access'
-                : `${currentUser.location} · ${currentUser.factory}`}
+              {userIsSuperAdmin
+                ? 'All Pakistan Super Admin'
+                : userIsLocationAdmin
+                  ? `${currentUser.location} · All Location Factories`
+                  : `${currentUser.location} · ${currentUser.factory}`}
             </p>
           </div>
           <button
@@ -378,7 +412,7 @@ const AppContent: React.FC = () => {
       <main className="flex-1 overflow-auto p-4 md:p-6 pb-20">
         <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
-            <Dashboard user={currentUser} kaizens={kaizens} onNavigateTab={setActiveTab} />
+            <Dashboard user={currentUser} kaizens={scopedKaizens} onNavigateTab={setActiveTab} />
           )}
           {activeTab === 'submit' &&
             currentUser.role === 'DEPARTMENT' &&
@@ -392,10 +426,10 @@ const AppContent: React.FC = () => {
               />
             )}
           {activeTab === 'records' && (
-            <Records user={currentUser} kaizens={kaizens} onUpdate={updateKaizen} />
+            <Records user={currentUser} kaizens={scopedKaizens} onUpdate={updateKaizen} />
           )}
           {activeTab === 'analytics' && currentUser.role === 'ADMIN' && (
-            <AdminGlobalAnalytics kaizens={kaizens} />
+            <AdminGlobalAnalytics user={currentUser} kaizens={scopedKaizens} />
           )}
         </div>
       </main>

@@ -13,7 +13,9 @@ import {
   FURNITURE_DEPARTMENTS,
   MOLTY_FOAM_DEPARTMENTS,
   getFactoriesForLocation,
-  getDepartmentsForFactory
+  getDepartmentsForFactory,
+  isSuperAdmin,
+  isLocationAdmin
 } from '../types';
 import {
   enrichKaizensWithRankings,
@@ -43,11 +45,13 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) => {
+  const userIsSuperAdmin = isSuperAdmin(user);
+  const userIsLocationAdmin = isLocationAdmin(user);
   const rankedKaizens = useMemo(() => enrichKaizensWithRankings(kaizens), [kaizens]);
 
   const [showQrModal, setShowQrModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<'All' | Location>(
-    user.role === 'ADMIN' ? 'All' : (user.location as Location)
+    userIsSuperAdmin ? 'All' : (user.location as Location)
   );
   const [selectedFactory, setSelectedFactory] = useState<'All' | Factory>(
     user.role === 'ADMIN' ? 'All' : (user.factory as Factory)
@@ -96,7 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
   // All visualizations sync strictly with filteredKaizens
   const filteredKaizens = useMemo(() => {
     return rankedKaizens.filter((k) => {
-      const locMatch = user.role === 'ADMIN'
+      const locMatch = userIsSuperAdmin
         ? selectedLocation === 'All' || k.location === selectedLocation
         : k.location === user.location;
       const factoryMatch = user.role === 'ADMIN'
@@ -354,37 +358,51 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
       <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col xl:flex-row gap-4 xl:items-center justify-between">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            {user.role === 'ADMIN' ? 'Kaizen Committee · Management Dashboard' : `${user.department} Section Dashboard`}
+            {userIsSuperAdmin
+              ? 'Kaizen Committee · Super Admin Dashboard'
+              : userIsLocationAdmin
+                ? `${user.location} Factory Admin · Dashboard`
+                : `${user.department} Section Dashboard`}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {user.role === 'ADMIN'
+            {userIsSuperAdmin
               ? `${selectedLocation === 'All' ? 'All Pakistan (Karachi · Lahore · Mirpur)' : selectedLocation} · ${
                   selectedFactory === 'All' ? 'All Factories' : selectedFactory
                 }`
-              : `${user.location} · ${user.factory} · Master Group of Industries`}
+              : userIsLocationAdmin
+                ? `${user.location} Scope · ${selectedFactory === 'All' ? 'All Location Factories' : selectedFactory}`
+                : `${user.location} · ${user.factory} · Master Group of Industries`}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2.5 items-center">
           {user.role === 'ADMIN' && (
             <>
-              <select
-                value={selectedLocation}
-                onChange={(e) => handleLocationChange(e.target.value as 'All' | Location)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
-              >
-                <option value="All">All Locations (3)</option>
-                {LOCATIONS.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
+              {userIsSuperAdmin ? (
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => handleLocationChange(e.target.value as 'All' | Location)}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
+                >
+                  <option value="All">All Locations (3)</option>
+                  {LOCATIONS.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="px-3 py-2 border border-blue-200 rounded-lg text-xs font-bold bg-blue-50 text-blue-800">
+                  {user.location} Admin
+                </span>
+              )}
 
               <select
                 value={selectedFactory}
                 onChange={(e) => handleFactoryChange(e.target.value as 'All' | Factory)}
                 className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-slate-50 text-slate-900 outline-none focus:border-blue-600"
               >
-                <option value="All">All Factories</option>
+                <option value="All">
+                  {userIsLocationAdmin ? `All ${user.location} Factories` : 'All Factories'}
+                </option>
                 {availableFactories.map((f) => (
                   <option key={f} value={f}>{f}</option>
                 ))}
@@ -475,8 +493,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
         </div>
       </div>
 
-      {/* Admin Brand Comparisons: Master Molty Foam (KHI vs LHR vs MPR) & Master Lifestyle (KHI vs LHR) */}
-      {user.role === 'ADMIN' && (
+      {/* Super Admin Brand Comparisons: Master Molty Foam (KHI vs LHR vs MPR) & Master Lifestyle (KHI vs LHR) */}
+      {userIsSuperAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {(selectedFactory === 'All' || selectedFactory === Factory.MASTER_MOLTY_FOAM) && (
             <div className="bg-white p-6 border border-slate-200 rounded-xl space-y-4">
@@ -553,15 +571,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, kaizens, onNavigateTab }) =
         </div>
       )}
 
-      {/* Admin 5-Facility Segregated Comparison Strip */}
+      {/* Facility Segregated Comparison Strip */}
       {user.role === 'ADMIN' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div
+          className={`grid grid-cols-1 gap-4 ${
+            facilityCards.length === 1
+              ? ''
+              : facilityCards.length === 2
+                ? 'md:grid-cols-2'
+                : 'md:grid-cols-2 xl:grid-cols-3'
+          }`}
+        >
           {facilityCards.map((fc) => (
             <button
               key={fc.key}
               type="button"
               onClick={() => {
-                setSelectedLocation(fc.location);
+                if (userIsSuperAdmin) setSelectedLocation(fc.location);
                 setSelectedFactory(fc.factory);
               }}
               className="bg-white p-5 rounded-xl border border-slate-200 hover:border-blue-600 text-left transition-all group"

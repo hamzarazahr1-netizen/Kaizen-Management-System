@@ -29,8 +29,60 @@ const MOLTY_ALIASES: Record<string, string> = {
   'accessories section': 'Accessories Section'
 };
 
+type AdminScope = 'ALL' | Location;
+
+interface AdminAccountConfig {
+  scope: AdminScope;
+  id: string;
+  aliases: string[];
+  password: string;
+  title: string;
+  subtitle: string;
+  departmentLabel: string;
+}
+
+const ADMIN_ACCOUNTS: AdminAccountConfig[] = [
+  {
+    scope: 'ALL',
+    id: 'admin',
+    aliases: ['admin', 'superadmin', 'super admin', 'kaizen committee'],
+    password: 'Lean2025',
+    title: 'Super Admin',
+    subtitle: 'All 3 Locations · All Rights',
+    departmentLabel: 'Kaizen Committee · Super Admin'
+  },
+  {
+    scope: Location.KARACHI,
+    id: 'karachiadmin',
+    aliases: ['karachiadmin', 'karachi', 'karachi admin', 'karachi factory admin'],
+    password: 'Karachiadmin2025',
+    title: 'Karachi Admin',
+    subtitle: 'Lifestyle & Molty Foam (KHI)',
+    departmentLabel: 'Karachi · Location Admin'
+  },
+  {
+    scope: Location.LAHORE,
+    id: 'lahoreadmin',
+    aliases: ['lahoreadmin', 'lahore', 'lahore admin', 'lahore factory admin'],
+    password: 'Lahoreadmin2025',
+    title: 'Lahore Admin',
+    subtitle: 'Lifestyle & Molty Foam (LHR)',
+    departmentLabel: 'Lahore · Location Admin'
+  },
+  {
+    scope: Location.MIRPUR,
+    id: 'mirpuradmin',
+    aliases: ['mirpuradmin', 'mirpur', 'mirpur admin', 'mirpur factory admin'],
+    password: 'Mirpuradmin2025',
+    title: 'Mirpur Admin',
+    subtitle: 'Master Molty Foam (MPR)',
+    departmentLabel: 'Mirpur · Location Admin'
+  }
+];
+
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loginMode, setLoginMode] = useState<'SECTION' | 'ADMIN'>('SECTION');
+  const [adminScope, setAdminScope] = useState<AdminScope>('ALL');
   const [selectedLocation, setSelectedLocation] = useState<Location>(Location.KARACHI);
   const [selectedFactory, setSelectedFactory] = useState<Factory>(Factory.MASTER_LIFESTYLE);
   const [sectionInput, setSectionInput] = useState('');
@@ -57,6 +109,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
   };
 
+  const handleSelectAdminScope = (acct: AdminAccountConfig) => {
+    setAdminScope(acct.scope);
+    setSectionInput(acct.id);
+    setPassword('');
+    setError('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -64,24 +123,37 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const normalizedInput = sectionInput.trim();
     const normalizedId = normalizedInput.toLowerCase();
 
-    // Kaizen Committee / Management Admin Login
-    if (
-      (loginMode === 'ADMIN' && (normalizedId === '' || normalizedId === 'admin') && password === 'Lean2025') ||
-      (normalizedId === 'admin' && password === 'Lean2025')
-    ) {
+    // Check matching Admin account (Super Admin or Location Admin)
+    const matchedAdminByAlias = ADMIN_ACCOUNTS.find((acct) =>
+      acct.aliases.includes(normalizedId)
+    );
+    const activeAdminAccount =
+      matchedAdminByAlias ||
+      (loginMode === 'ADMIN' && normalizedId === ''
+        ? ADMIN_ACCOUNTS.find((acct) => acct.scope === adminScope)
+        : undefined);
+
+    if (activeAdminAccount && password === activeAdminAccount.password) {
       onLogin({
-        id: 'admin',
-        name: 'Kaizen Committee Admin',
+        id: activeAdminAccount.id,
+        name:
+          activeAdminAccount.scope === 'ALL'
+            ? 'Kaizen Committee Super Admin'
+            : `${activeAdminAccount.scope} Factory Admin`,
         role: 'ADMIN',
-        department: 'Kaizen Committee · Management',
-        location: 'ALL',
+        department: activeAdminAccount.departmentLabel,
+        location: activeAdminAccount.scope,
         factory: 'ALL'
       });
       return;
     }
 
     if (loginMode === 'ADMIN') {
-      setError('Invalid Management credentials. Verify Admin ID and Password.');
+      setError(
+        `Invalid credentials for ${
+          activeAdminAccount ? activeAdminAccount.title : 'Admin Portal'
+        }. Verify Admin ID and Password.`
+      );
       return;
     }
 
@@ -197,7 +269,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 onClick={() => {
                   setLoginMode('SECTION');
                   setError('');
-                  if (sectionInput.toLowerCase() === 'admin') setSectionInput('');
+                  const isAdminAlias = ADMIN_ACCOUNTS.some((a) =>
+                    a.aliases.includes(sectionInput.trim().toLowerCase())
+                  );
+                  if (isAdminAlias) setSectionInput('');
                 }}
                 className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
                   loginMode === 'SECTION'
@@ -211,7 +286,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 type="button"
                 onClick={() => {
                   setLoginMode('ADMIN');
-                  setSectionInput('admin');
+                  const currentAcct =
+                    ADMIN_ACCOUNTS.find((a) => a.scope === adminScope) || ADMIN_ACCOUNTS[0];
+                  setSectionInput(currentAcct.id);
                   setError('');
                 }}
                 className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
@@ -220,7 +297,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Kaizen Committee
+                Admin & Committee
               </button>
             </div>
           </div>
@@ -355,25 +432,65 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-start gap-3">
                   <ShieldCheck className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
                   <div className="text-xs text-slate-600 leading-relaxed">
-                    <p className="font-bold text-slate-900">Kaizen Committee & Management Access</p>
+                    <p className="font-bold text-slate-900">Super Admin & Location Factory Admin Access</p>
                     <p className="mt-0.5">
-                      Review pending Kaizens across Karachi, Lahore, and Mirpur, evaluate submissions against the 7-criteria judgment matrix, and view segregated Finance reward summaries.
+                      Super Admin views all 3 locations nationwide. Location Admins (Karachi, Lahore, Mirpur) view, edit, evaluate, and generate summaries for their own location factories.
                     </p>
                   </div>
                 </div>
 
                 <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">
+                    1. Select Admin Scope
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {ADMIN_ACCOUNTS.map((acct) => {
+                      const isActive = adminScope === acct.scope;
+                      return (
+                        <button
+                          key={acct.id}
+                          type="button"
+                          onClick={() => handleSelectAdminScope(acct)}
+                          className={`p-3 rounded-lg border text-left transition-all ${
+                            isActive
+                              ? 'border-blue-700 bg-blue-50/70 ring-1 ring-blue-700'
+                              : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-xs font-extrabold ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>
+                              {acct.title}
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold ${isActive ? 'text-blue-700' : 'text-slate-400'}`}>
+                              {acct.id}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block mt-0.5">{acct.subtitle}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Management Admin ID
+                    2. Admin ID
                   </label>
                   <div className="relative">
                     <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={sectionInput}
-                      onChange={(e) => setSectionInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSectionInput(val);
+                        const matched = ADMIN_ACCOUNTS.find((a) =>
+                          a.aliases.includes(val.trim().toLowerCase())
+                        );
+                        if (matched) setAdminScope(matched.scope);
+                      }}
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:border-blue-700 focus:bg-white outline-none transition-all"
-                      placeholder="admin"
+                      placeholder="admin, karachiadmin, lahoreadmin, or mirpuradmin"
                       required
                     />
                   </div>
@@ -381,10 +498,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             )}
 
-            {/* Step 4: Password */}
+            {/* Password */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                {loginMode === 'ADMIN' ? 'Management Password' : '4. Section Password'}
+                {loginMode === 'ADMIN' ? '3. Admin Password' : '4. Section Password'}
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -403,14 +520,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               type="submit"
               className="w-full bg-slate-900 hover:bg-blue-800 text-white text-xs font-bold uppercase tracking-wider py-3.5 px-4 rounded-lg transition-all shadow-sm active:scale-[0.99] flex items-center justify-center gap-2"
             >
-              <span>{loginMode === 'ADMIN' ? 'Open Management Dashboard' : 'Sign In to Section Portal'}</span>
+              <span>
+                {loginMode === 'ADMIN'
+                  ? adminScope === 'ALL'
+                    ? 'Open Super Admin Portal'
+                    : `Open ${adminScope} Admin Portal`
+                  : 'Sign In to Section Portal'}
+              </span>
               <ChevronRight className="w-4 h-4" />
             </button>
 
             <div className="pt-4 border-t border-slate-100 text-center">
               <p className="text-[11px] text-slate-500">
                 {loginMode === 'ADMIN'
-                  ? 'Kaizen Committee Admin ID: admin'
+                  ? 'Super Admin ID: admin · Location Admins: karachiadmin / lahoreadmin / mirpuradmin'
                   : 'Authorized Personnel Only · Select Location, Factory & Section (Pass: 123)'}
               </p>
             </div>
